@@ -1,0 +1,152 @@
+/* Stockly -- design tokens, shell and navigation.
+   Derived from the single-file prototype's inline stylesheet. */
+
+:root {
+  --bg: #f6f7f9;
+  --card: #fff;
+  --ink: #14171f;
+  --mut: #6b7280;
+  --line: #e5e7eb;
+  --ac: #0f766e;
+  --ac2: #f59e0b;
+  --bad: #dc2626;
+  --good: #15803d;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0e1116;
+    --card: #171b22;
+    --ink: #eef0f4;
+    --mut: #8b94a3;
+    --line: #262c36;
+    --ac: #2dd4bf;
+    --ac2: #fbbf24;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #0e1116;
+  --card: #171b22;
+  --ink: #eef0f4;
+  --mut: #8b94a3;
+  --line: #262c36;
+  --ac: #2dd4bf;
+  --ac2: #fbbf24;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-padding-top: env(safe-area-inset-top, 0px);
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.45 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.w {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.logo {
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+
+.logo b {
+  color: var(--ac);
+}
+
+nav {
+  display: flex;
+  gap: 4px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  padding: 4px;
+  border-radius: 12px;
+}
+
+nav a {
+  border: 0;
+  background: none;
+  color: var(--mut);
+  padding: 8px 14px;
+  border-radius: 9px;
+  font: 600 14px inherit;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+nav a.on {
+  background: var(--ac);
+  color: #fff;
+}
+
+nav a:hover:not(.on) {
+  color: var(--ink);
+}
+
+.hd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-btn {
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--mut);
+  border-radius: 10px;
+  padding: 8px 11px;
+  cursor: pointer;
+  font: 600 13px inherit;
+}
+
+.icon-btn:hover {
+  color: var(--ink);
+}
+
+.foot {
+  margin: 24px 0 8px;
+  color: var(--mut);
+  font-size: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.foot a {
+  color: var(--mut);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* Alpine elements are hidden until Alpine has initialised, so a staged cart
+   never flashes as an empty shell. */
+[x-cloak] {
+  display: none !important;
+}

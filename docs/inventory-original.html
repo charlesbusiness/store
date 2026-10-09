@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stockly · Sales & Inventory</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#14171f;--mut:#6b7280;--line:#e5e7eb;--ac:#0f766e;--ac2:#f59e0b;--bad:#dc2626;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0e1116;--card:#171b22;--ink:#eef0f4;--mut:#8b94a3;--line:#262c36;--ac:#2dd4bf;--ac2:#fbbf24}}
+:root[data-theme=dark]{--bg:#0e1116;--card:#171b22;--ink:#eef0f4;--mut:#8b94a3;--line:#262c36;--ac:#2dd4bf;--ac2:#fbbf24}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+.w{max-width:980px;margin:0 auto;padding:16px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.logo{font-weight:800;font-size:20px;letter-spacing:-.02em}.logo b{color:var(--ac)}
+nav{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);padding:4px;border-radius:12px}
+nav button{border:0;background:none;color:var(--mut);padding:8px 14px;border-radius:9px;font:600 14px inherit;cursor:pointer}
+nav button.on{background:var(--ac);color:#fff}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px}
+h2{margin:0 0 12px;font-size:16px}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--mut)}
+input,select{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;font:15px inherit;width:100%}
+input:focus,select:focus{outline:2px solid var(--ac);border-color:transparent}
+.btn{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:10px 18px;font:600 14px inherit;cursor:pointer}
+.btn.alt{background:none;color:var(--ink);border:1px solid var(--line)}
+.pv{margin:10px 0;color:var(--ac);font-weight:600;min-height:22px}
+.sc{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;color:var(--mut);font-size:12px;font-weight:600;padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}td.r,th.r{text-align:right}
+tfoot td{font-weight:700;border:0}
+.kp{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:14px}
+.kp div{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+.kp small{color:var(--mut);font-weight:600}.kp strong{display:block;font-size:22px;letter-spacing:-.02em}
+.seg{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.seg .sg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px}
+.seg .sg button{border:0;background:none;color:var(--mut);padding:6px 12px;border-radius:7px;font:600 13px inherit;cursor:pointer}
+.seg .sg button.on{background:var(--ink);color:var(--bg)}.seg input{width:auto}
+.ch{display:flex;align-items:flex-end;gap:10px;height:150px;padding-top:8px}
+.ch div{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;font-size:11px;color:var(--mut)}
+.bars{display:flex;gap:3px;align-items:flex-end;width:100%;flex:1;justify-content:center}
+.bars i{display:block;width:40%;max-width:22px;background:var(--ac);border-radius:5px 5px 0 0;min-height:2px}.bars i.p{background:var(--ac2)}
+.lg{font-size:12px;color:var(--mut);margin-top:8px}.lg span{display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--ac);margin:0 4px 0 0}.lg span.p{background:var(--ac2);margin-left:12px}
+.tag{font-size:11px;padding:2px 8px;border-radius:99px;background:var(--bad);color:#fff;font-weight:700}
+.x{background:none;border:0;color:var(--bad);cursor:pointer;font-size:16px}
+.e{color:var(--mut);padding:12px 0}
+#t{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;display:none;z-index:9}
+</style></head><body><div class="w">
+<header><div class="logo">Stock<b>ly</b></div>
+<nav id="nv"></nav></header>
+<div id="v"></div></div><div id="t"></div>
+<script>
+const K='stockly_v1',CUR='₦';
+let S={tx:[]},tab='rep',mode='d',dt={s:td(),p:td()},cart={s:[],p:[]};
+try{S=JSON.parse(localStorage.getItem(K))||S}catch(e){}
+const sv=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
+const U={pcs:['c',1],dozen:['c',12],g:['w',1],kg:['w',1000],ml:['v',1],L:['v',1000]};
+function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function td(){return iso(new Date())}
+let anchor=td();
+const pd=s=>new Date(s+'T00:00:00'),$=i=>document.getElementById(i);
+const f=n=>CUR+(+n).toLocaleString(undefined,{maximumFractionDigits:2}),qf=n=>(+n).toLocaleString(undefined,{maximumFractionDigits:3});
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(m){const t=$('t');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2400)}
+function inv(){const m={};[...S.tx].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0).forEach(t=>{const b=t.qty*U[t.unit][1];const i=m[t.name]||(m[t.name]={name:t.name,disp:t.unit,fam:U[t.unit][0],stock:0,cost:0,bought:0,sold:0,rev:0});if(t.type=='p'){i.stock+=b;i.cost+=t.total;i.bought+=b}else{i.stock-=b;i.sold+=b;i.rev+=t.total}});return m}
+function key(ds,m){if(m=='d')return ds;if(m=='m')return ds.slice(0,7);const d=pd(ds);d.setDate(d.getDate()-((d.getDay()+6)%7));return iso(d)}
+function bks(){const o=[],a=pd(anchor),n=mode=='d'?7:mode=='w'?8:6;for(let i=n-1;i>=0;i--){const d=new Date(a);if(mode=='d')d.setDate(a.getDate()-i);else if(mode=='w')d.setDate(a.getDate()-7*i);else d.setMonth(a.getMonth()-i,1);o.push(key(iso(d),mode))}return o}
+const lab=k=>mode=='m'?pd(k+'-01').toLocaleString(undefined,{month:'short'}):k.slice(5);
+function nav(){$('nv').innerHTML=[['rep','Reports'],['s','Sell'],['p','Buy'],['stk','Stock']].map(([k,n])=>`<button class="${tab==k?'on':''}" onclick="tab='${k}';R()">${n}</button>`).join('')}
+function R(){nav();$('v').innerHTML=tab=='rep'?rep():tab=='stk'?stk():form(tab);if(tab=='s'||tab=='p')su(tab)}
+function rep(){
+ const I=inv(),ck=key(anchor,mode),cur=S.tx.filter(t=>key(t.date,mode)==ck);
+ const sum=ty=>cur.filter(t=>t.type==ty).reduce((a,t)=>a+t.total,0),S1=sum('s'),P1=sum('p');
+ const agg=ty=>{const m={};cur.filter(t=>t.type==ty).forEach(t=>{const b=t.qty*U[t.unit][1],x=m[t.name]||(m[t.name]={b:0,v:0});x.b+=b;x.v+=t.total});return Object.entries(m).sort((a,b)=>b[1].v-a[1].v)};
+ const row=(n,x)=>{const d=I[n].disp;return `<tr><td>${esc(n)}</td><td class=r>${qf(x.b/U[d][1])} ${d}</td><td class=r>${f(x.v)}</td></tr>`};
+ const tbl=(ty,h)=>{const a=agg(ty);return `<div class=card><h2>${h}</h2>${a.length?`<div class=sc><table><thead><tr><th>Item<th class=r>Qty<th class=r>Amount</tr></thead><tbody>${a.map(([n,x])=>row(n,x)).join('')}</tbody></table></div>`:'<div class=e>Nothing recorded for this period.</div>'}</div>`};
+ const B=bks(),vals=B.map(k=>[0,1].map(i=>S.tx.filter(t=>key(t.date,mode)==k&&t.type==(i?'p':'s')).reduce((a,t)=>a+t.total,0))),mx=Math.max(1,...vals.flat());
+ const rl={d:pd(anchor).toDateString(),w:'Week of '+pd(ck).toDateString().slice(4),m:pd(ck+'-01').toLocaleString(undefined,{month:'long',year:'numeric'})}[mode];
+ return `<div class=seg><div class=sg>${[['d','Daily'],['w','Weekly'],['m','Monthly']].map(([k,n])=>`<button class="${mode==k?'on':''}" onclick="mode='${k}';R()">${n}</button>`).join('')}</div><input type=date value="${anchor}" onchange="anchor=this.value||td();R()"><span style="color:var(--mut)">${rl}</span></div>
+ <div class=kp><div><small>Sales</small><strong>${f(S1)}</strong></div><div><small>Purchases</small><strong>${f(P1)}</strong></div><div><small>Sales − Purchases</small><strong style="color:${S1-P1<0?'var(--bad)':'var(--ac)'}">${f(S1-P1)}</strong></div><div><small>Stock value</small><strong>${f(Object.values(I).reduce((a,i)=>a+(i.bought?Math.max(i.stock,0)*i.cost/i.bought:0),0))}</strong></div></div>
+ <div class=card><h2>Trend</h2><div class=ch>${B.map((k,j)=>`<div><div class=bars><i style="height:${vals[j][0]/mx*100}%"></i><i class=p style="height:${vals[j][1]/mx*100}%"></i></div>${lab(k)}</div>`).join('')}</div><div class=lg><span></span>Sales<span class=p></span>Purchases</div></div>
+ ${tbl('s','Items sold')}${tbl('p','Items purchased')}`}
+function stk(){const L=Object.values(inv()).sort((a,b)=>a.name.localeCompare(b.name));
+ const tv=L.reduce((a,i)=>a+(i.bought?Math.max(i.stock,0)*i.cost/i.bought:0),0),tp=L.reduce((a,i)=>a+i.cost,0);
+ return `<div class=card><h2>Inventory</h2>${L.length?`<div class=sc><table><thead><tr><th>Item<th class=r>In stock<th class=r>Cost / unit<th class=r>Stock value<th class=r>Total purchased<th class=r>Sold</tr></thead><tbody>${L.map(i=>{const fa=U[i.disp][1],cu=i.bought?i.cost/i.bought*fa:0;return `<tr><td>${esc(i.name)} ${i.stock<=0?'<span class=tag>OUT</span>':''}</td><td class=r>${qf(i.stock/fa)} ${i.disp}</td><td class=r>${f(cu)}/${i.disp}</td><td class=r>${f(Math.max(i.stock,0)*cu/fa)}</td><td class=r>${f(i.cost)}</td><td class=r>${qf(i.sold/fa)} ${i.disp}</td></tr>`}).join('')}</tbody><tfoot><tr><td>Total<td><td><td class=r>${f(tv)}<td class=r>${f(tp)}<td></tr></tfoot></table></div>`:'<div class=e>No items yet. Record a purchase to start.</div>'}</div>`}
+function form(t){const I=inv(),isS=t=='s',names=Object.values(I).filter(i=>!isS||i.stock>0).map(i=>i.name),L=cart[t],tot=L.reduce((a,l)=>a+l.total,0);
+ const rec=S.tx.filter(x=>x.type==t).slice(-8).reverse();
+ return `<div class=card><h2>${isS?'Record a sale':'Record a purchase'}</h2>${isS&&!names.length?'<div class=e>No stock available. Record a purchase first.</div>':`<div class=g>
+ <label>Date<input type=date value="${dt[t]}" onchange="dt['${t}']=this.value"></label>
+ <label>Item${isS?`<select id=${t}n onchange="su('s')">${names.map(n=>`<option>${esc(n)}</option>`).join('')}</select>`:`<input id=pn list=dl oninput="su('p')" placeholder="e.g. Rice"><datalist id=dl>${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>`}</label>
+ <label>Quantity<input id=${t}q type=number min=0 step=any inputmode=decimal oninput="pv('${t}')"></label>
+ <label>Unit<select id=${t}u></select></label>
+ <label>${isS?'Price per unit':'Total cost'}<input id=${t}a type=number min=0 step=any inputmode=decimal oninput="pv('${t}')"></label></div>
+ <div class=pv id=${t}pv></div><button class=btn onclick="add('${t}')">Add line</button>`}</div>
+ ${L.length?`<div class=card><h2>${isS?'Current sale':'Current purchase'}</h2><div class=sc><table><thead><tr><th>Item<th class=r>Qty<th class=r>${isS?'Price':'Cost'} / unit<th class=r>Total<th></tr></thead><tbody>${L.map((l,i)=>`<tr><td>${esc(l.name)}<td class=r>${qf(l.qty)} ${l.unit}<td class=r>${f(l.price)}<td class=r>${f(l.total)}<td><button class=x onclick="cart['${t}'].splice(${i},1);R()">×</button></tr>`).join('')}</tbody><tfoot><tr><td colspan=3>${isS?'Sale total':'Purchase total'}<td class=r>${f(tot)}<td></tr></tfoot></table></div><br><button class=btn onclick="fin('${t}')">Save ${isS?'sale':'purchase'}</button> <button class="btn alt" onclick="cart['${t}']=[];R()">Clear</button></div>`:''}
+ <div class=card><h2>Recent ${isS?'sales':'purchases'}</h2>${rec.length?`<div class=sc><table><tbody>${rec.map(x=>`<tr><td>${x.date}<td>${esc(x.name)}<td class=r>${qf(x.qty)} ${x.unit}<td class=r>${f(x.total)}<td><button class=x onclick="del('${x.id}')">×</button></tr>`).join('')}</tbody></table></div>`:'<div class=e>Nothing yet.</div>'}</div>`}
+function su(t){const I=inv(),n=$(t+'n');if(!n)return;const nm=n.value.trim().toLowerCase(),it=Object.values(I).find(i=>i.name.toLowerCase()==nm),u=$(t+'u'),cv=u.value;
+ u.innerHTML=Object.keys(U).filter(k=>!it||U[k][0]==it.fam).map(k=>`<option>${k}</option>`).join('');u.value=cv&&[...u.options].some(o=>o.value==cv)?cv:(it?it.disp:'pcs');
+ if(t=='s'&&it&&it.stock>0&&!$('sa').value){const l=[...S.tx].reverse().find(x=>x.type=='s'&&x.name==it.name);if(l)$('sa').value=l.price}pv(t)}
+function pv(t){const q=+$(t+'q').value,a=+$(t+'a').value,e=$(t+'pv');e.textContent=q>0&&a>0?(t=='s'?'Line total: '+f(q*a):'Cost per '+$(t+'u').value+': '+f(a/q)):''}
+function add(t){const I=inv(),raw=$(t+'n').value.trim(),q=+$(t+'q').value,a=+$(t+'a').value,u=$(t+'u').value;
+ if(!raw||!(q>0)||!(a>=0)||$(t+'a').value==='')return toast('Fill in item, quantity and amount');
+ const ex=Object.values(I).find(i=>i.name.toLowerCase()==raw.toLowerCase()),name=ex?ex.name:raw;
+ if(t=='s'){const need=q*U[u][1]+cart.s.filter(l=>l.name==name).reduce((x,l)=>x+l.qty*U[l.unit][1],0);if(need>ex.stock+1e-9)return toast('Only '+qf(ex.stock/U[ex.disp][1])+' '+ex.disp+' in stock')}
+ cart[t].push({name,qty:q,unit:u,price:t=='s'?a:a/q,total:t=='s'?q*a:a});R()}
+function fin(t){cart[t].forEach(l=>S.tx.push({id:Date.now()+''+Math.floor(Math.random()*1e5),date:dt[t],type:t,...l}));cart[t]=[];sv();toast('Saved');R()}
+function del(id){if(!confirm('Delete this record? Stock will adjust.'))return;S.tx=S.tx.filter(x=>x.id!=id);sv();R()}
+R();
+</script></body></html>
