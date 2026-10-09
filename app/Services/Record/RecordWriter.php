@@ -86,6 +86,7 @@ abstract class RecordWriter extends Service
                     'total' => $line['total'],
                     'inner_units' => $line['inner_units'] ?: null,
                     'unit_cost' => $line['unit_cost'] ?? null,
+                    'selling_price' => $line['selling_price'] ?? null,
                     'cost' => $this->costFor($line),
                 ]);
             }
@@ -102,7 +103,7 @@ abstract class RecordWriter extends Service
      * the same number under a different name. Only a sale has a cost that is not
      * already on the line, because what it cost then is not what it sells for.
      *
-     * @param  array{item: Item, unit: Unit, qty: float, base_qty: float, unit_price: float, total: float, inner_units?: array|null, unit_cost?: float|null}  $line
+     * @param  array{item: Item, unit: Unit, qty: float, base_qty: float, unit_price: float, total: float, inner_units?: array|null, unit_cost?: float|null, selling_price?: float|null}  $line
      */
     protected function costFor(array $line): ?float
     {

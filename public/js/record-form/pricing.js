@@ -16,7 +16,10 @@ export function effectivePrice() {
 /** Get the purchase selling price for a unit code, if available. */
 export function itemSellingPriceForUnit(code) {
   const item = this.currentItem;
-  return item && item.sellingPricePerUnitByUnit && item.sellingPricePerUnitByUnit[code];
+  if (!item || !item.sellingPricePerUnitByUnit) return null;
+
+  const price = item.sellingPricePerUnitByUnit[code];
+  return price === undefined || price === null ? null : price;
 }
 
 /** Formatted purchase selling price for display, or empty string. */
@@ -24,5 +27,5 @@ export function purchaseSellingPriceDisplay() {
   const unit = this.selectedUnit;
   if (!unit) return '';
   const price = this.itemSellingPriceForUnit(unit.code);
-  return price ? 'Purchase selling price: ' + this.money(price) : '';
+  return price === null ? '' : 'Selling price: ' + this.money(price);
 }

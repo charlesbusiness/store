@@ -6,7 +6,51 @@
      half-typed line can never reach the server. On a sale each row also carries
      the margin, from the same average cost the server will freeze onto the line
      when it saves -- so the number previewed here is the number that lands. --}}
-<div class="sc">
+<template x-if="draft">
+  <div class="invoice-preview">
+    <div>
+      <span>Item</span>
+      <strong x-text="draft.label"></strong>
+    </div>
+    <div>
+      <span>Qty</span>
+      <strong>
+        <span x-text="draft.qtyLabel"></span> <span x-text="draft.unitLabel"></span>
+      </strong>
+      <small x-show="draft.equivalents" x-text="draft.equivalents"></small>
+    </div>
+    @if ($form['isSale'])
+      <div>
+        <span>Cost / unit</span>
+        <strong x-text="money(draft.unit_cost)"></strong>
+      </div>
+      <div>
+        <span>Sell Price / unit</span>
+        <strong x-text="money(draft.selling_price ?? draft.price)"></strong>
+      </div>
+      <div>
+        <span>Total</span>
+        <strong x-text="money(draft.total)"></strong>
+      </div>
+      <div>
+        <span>Profit</span>
+        <strong :class="draft.profitClass" x-text="draft.profitLabel"></strong>
+      </div>
+    @else
+      <div>
+        <span>Cost / unit</span>
+        <strong x-text="money(draft.price)"></strong>
+      </div>
+      <div>
+        <span>Total</span>
+        <strong x-text="money(draft.total)"></strong>
+      </div>
+    @endif
+    <button type="button" class="btn sm" @click="add()">Add</button>
+  </div>
+</template>
+
+<div class="sc" x-show="lines.length > 0" x-cloak>
   <table>
     <thead>
       <tr>
@@ -25,28 +69,6 @@
       </tr>
     </thead>
     <tbody>
-      <template x-if="draft">
-        <tr class="draft">
-          <td x-text="draft.label"></td>
-          <td class="r">
-            <span x-text="draft.qtyLabel"></span> <span x-text="draft.unitLabel"></span>
-            <div class="mut" style="font-size:12px" x-show="draft.equivalents" x-text="draft.equivalents"></div>
-          </td>
-          @if ($form['isSale'])
-            <td class="r" x-text="money(draft.unit_cost)"></td>
-            <td class="r" x-text="money(draft.selling_price ?? draft.price)"></td>
-            <td class="r" x-text="money(draft.total)"></td>
-            <td class="r" :class="draft.profitClass" x-text="draft.profitLabel"></td>
-          @else
-            <td class="r" x-text="money(draft.price)"></td>
-            <td class="r" x-text="money(draft.total)"></td>
-          @endif
-          <td>
-            <button type="button" class="x" @click="add()" title="Add this line to the sale">Add</button>
-          </td>
-        </tr>
-      </template>
-
       <template x-for="(line, index) in lines" :key="index">
         <tr>
           {{-- The inputs live in a hidden cell: a bare <input> inside <tr> is
@@ -64,6 +86,7 @@
               <input type="hidden" :name="'lines[' + index + '][unit_price]'" :value="line.selling_price ?? line.price">
             @else
               <input type="hidden" :name="'lines[' + index + '][unit_price]'" :value="line.price">
+              <input type="hidden" :name="'lines[' + index + '][selling_price]'" :value="line.selling_price">
             @endif
             <input type="hidden" :name="'lines[' + index + '][unit_cost]'" :value="line.unit_cost">
 
@@ -74,6 +97,7 @@
                 <input type="hidden" :name="'lines[' + index + '][inner_units][' + slot + '][unit]'" :value="pack.unit">
                 <input type="hidden" :name="'lines[' + index + '][inner_units][' + slot + '][per]'" :value="pack.per">
                 <input type="hidden" :name="'lines[' + index + '][inner_units][' + slot + '][cost]'" :value="pack.cost">
+                <input type="hidden" :name="'lines[' + index + '][inner_units][' + slot + '][sellingPrice]'" :value="pack.sellingPrice">
               </span>
             </template>
           </td>
@@ -101,30 +125,16 @@
     <tfoot>
       <tr>
         @if ($form['isSale'])
-          <td colspan="3">{{ $form['isSale'] ? 'Sale total' : 'Purchase total' }}</td>
+          <td colspan="4">Sale total</td>
           <td class="r" x-text="money(total)"></td>
           <td class="r" :class="totalProfitClass" x-text="totalProfitLabel"></td>
-        @else
-          <td colspan="2">Purchase total</td>
-          <td class="r" x-text="money(total)"></td>
-        @endif
-        <td></td>
-      </tr>
-      {{-- Kept apart from the row above so it is never mistaken for the amount
-           that will be saved: the draft is not in it yet. --}}
-      <template x-if="draft">
-        <tr class="draft">
-          @if ($form['isSale'])
-            <td colspan="3">Including the line above</td>
-            <td class="r" x-text="money(totalWithDraft)"></td>
-            <td class="r" :class="draft.profitClass" x-text="draft.profitLabel"></td>
-          @else
-            <td colspan="2">Including the line above</td>
-            <td class="r" x-text="money(totalWithDraft)"></td>
-          @endif
           <td></td>
-        </tr>
-      </template>
+        @else
+          <td colspan="3">Purchase total</td>
+          <td class="r" x-text="money(total)"></td>
+          <td></td>
+        @endif
+      </tr>
     </tfoot>
   </table>
 </div>

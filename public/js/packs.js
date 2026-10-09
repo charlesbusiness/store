@@ -1,6 +1,6 @@
 /* Stockly -- what one trading unit is made of, in the browser. */
 
-import { packHelpers } from './packs/index.js';
+import { packHelpers } from './packs/index.js?v=20261009b';
 
 // Export globally for the record form
 window.packHelpers = packHelpers;

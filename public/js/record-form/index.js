@@ -23,7 +23,7 @@ import {
   effectivePrice, 
   itemSellingPriceForUnit, 
   purchaseSellingPriceDisplay 
-} from './pricing.js';
+} from './pricing.js?v=20261009c';
 import { 
   total, 
   pending, 
@@ -53,7 +53,7 @@ import {
   costOfBase 
 } from './formatting.js';
 import { warn } from './utils.js';
-import { packHelpers } from '../packs/index.js';
+import { packHelpers } from '../packs/index.js?v=20261009b';
 
 /**
  * Creates the record form state object with all methods composed.

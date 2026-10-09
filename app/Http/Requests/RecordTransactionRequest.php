@@ -56,6 +56,8 @@ class RecordTransactionRequest extends FormRequest
         if ($this->type() === RecordType::Purchase) {
             // Purchases: unit_cost is required (becomes the effective price)
             $rules['lines.*.unit_cost'] = ['required', 'numeric', 'min:0'];
+            // Optional reference selling price carried from the buy form to the sell form.
+            $rules['lines.*.selling_price'] = ['nullable', 'numeric', 'min:0', 'max:999999999'];
             // unit_price is not required for purchases - it will be set from unit_cost
         } else {
             // Sales: unit_price (selling price) is required
@@ -81,6 +83,7 @@ class RecordTransactionRequest extends FormRequest
             $unit = "lines.*.inner_units.{$slot}.unit";
             $per = "lines.*.inner_units.{$slot}.per";
             $cost = "lines.*.inner_units.{$slot}.cost";
+            $sellingPrice = "lines.*.inner_units.{$slot}.sellingPrice";
 
             // Both or neither: a count without a unit, or a unit without a count,
             // is a half-typed row rather than a declaration.
@@ -105,6 +108,13 @@ class RecordTransactionRequest extends FormRequest
                 'nullable',
                 'numeric',
                 'min:0',
+            ];
+
+            $rules[$sellingPrice] = [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:999999999',
             ];
         }
 
@@ -140,6 +150,8 @@ class RecordTransactionRequest extends FormRequest
             'lines.*.unit_code' => 'unit',
             'lines.*.unit_price' => 'selling price per unit',
             'lines.*.unit_cost' => 'cost per unit',
+            'lines.*.selling_price' => 'selling price per unit',
+            'lines.*.inner_units.*.sellingPrice' => 'inner unit selling price',
         ];
     }
 
@@ -166,6 +178,7 @@ class RecordTransactionRequest extends FormRequest
                         ? ($line['unit_cost'] ?? $line['unit_price'] ?? null)
                         : ($line['unit_price'] ?? null),
                     'unit_cost' => $line['unit_cost'] ?? ($isPurchase ? $line['unit_price'] : null),
+                    'selling_price' => $line['selling_price'] ?? null,
                     'inner_units' => $this->declaredPacks($line),
                 ],
                 $this->validated('lines') ?? []
@@ -178,7 +191,7 @@ class RecordTransactionRequest extends FormRequest
      * travel as a null the normaliser has to unpick.
      *
      * @param  array<string, mixed>  $line
-     * @return array<int, array{unit: string, per: float, cost: float|null}>
+     * @return array<int, array{unit: string, per: float, cost: float|null, sellingPrice: float|null}>
      */
     private function declaredPacks(array $line): array
     {

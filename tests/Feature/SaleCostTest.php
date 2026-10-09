@@ -218,6 +218,31 @@ class SaleCostTest extends TestCase
         $this->assertNull($purchaseConfig['items'][0]['costPerUnit']);
     }
 
+    public function test_the_sell_form_receives_the_selling_price_declared_on_the_buy_form(): void
+    {
+        $this->actingAs($this->user());
+
+        $this->purchase([
+            [
+                'name' => 'Yam',
+                'qty' => 10,
+                'unit_code' => 'bag',
+                'unit_cost' => 150,
+                'selling_price' => 225,
+                'inner_units' => [
+                    ['unit' => 'pcs', 'per' => 5, 'cost' => 20, 'sellingPrice' => 45],
+                ],
+            ],
+        ])->assertSessionHasNoErrors();
+
+        $html = (string) $this->get(route('sales.create'))->getContent();
+        $item = $this->recordFormConfig($html)['items'][0];
+
+        $this->assertStringContainsString('purchaseSellingPriceDisplay', $html);
+        $this->assertEqualsWithDelta(225.0, $item['sellingPricePerUnitByUnit']['bag'], 0.001);
+        $this->assertEqualsWithDelta(45.0, $item['sellingPricePerUnitByUnit']['pcs'], 0.001);
+    }
+
     public function test_a_never_purchased_item_costs_nothing_rather_than_costing_zero(): void
     {
         $this->actingAs($this->user());

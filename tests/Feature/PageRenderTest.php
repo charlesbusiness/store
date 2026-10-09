@@ -137,6 +137,22 @@ class PageRenderTest extends TestCase
         }
     }
 
+    public function test_the_cart_preview_sits_outside_the_invoice_table(): void
+    {
+        $partial = file_get_contents(resource_path('views/records/partials/cart.blade.php'));
+
+        $this->assertStringContainsString('class="invoice-preview"', $partial);
+        $this->assertLessThan(
+            strpos($partial, '<table>'),
+            strpos($partial, 'class="invoice-preview"'),
+            'the draft preview belongs above the invoice table',
+        );
+        $this->assertStringNotContainsString('<tr class="draft">', $partial);
+        $this->assertStringContainsString('<td colspan="4">Sale total</td>', $partial);
+        $this->assertStringContainsString('<td colspan="3">Purchase total</td>', $partial);
+        $this->assertStringContainsString('x-show="lines.length > 0"', $partial);
+    }
+
     public function test_the_item_form_picks_a_measurement_then_a_unit(): void
     {
         $this->actingAs($this->user())
