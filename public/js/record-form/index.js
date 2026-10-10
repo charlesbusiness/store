@@ -17,7 +17,8 @@ import {
   selectedUnit, 
   unitCostLabel, 
   sellingPriceLabel, 
-  innerUnitCostLabel 
+  innerUnitCostLabel,
+  updateInnerUnitCosts 
 } from './units.js';
 import { 
   effectivePrice, 
@@ -32,7 +33,13 @@ import {
   pendingBaseFor, 
   add, 
   remove, 
-  clear 
+  clear,
+  addPack,
+  removePack,
+  dragStartPack,
+  dragOverPack,
+  dropPack,
+  dragEndPack
 } from './lines.js';
 import { 
   preview, 
@@ -87,6 +94,7 @@ export function createRecordForm(config) {
     get unitCostLabel() { return unitCostLabel.call(this); },
     get sellingPriceLabel() { return sellingPriceLabel.call(this); },
     innerUnitCostLabel,
+    updateInnerUnitCosts,
 
     // From pricing.js
     get effectivePrice() { return effectivePrice.call(this); },
@@ -102,6 +110,12 @@ export function createRecordForm(config) {
     add,
     remove,
     clear,
+    addPack,
+    removePack,
+    dragStartPack,
+    dragOverPack,
+    dropPack,
+    dragEndPack,
 
     // From draft.js
     get preview() { return preview.call(this); },
@@ -142,9 +156,9 @@ export function createRecordForm(config) {
 // Re-export for testing
 export { createInitialState } from './state.js';
 export { selected, namedItem, currentItem, onUnitChange, fetchUnitCost, syncItem } from './items.js';
-export { family, unitOptions, innerUnitOptions, setMeasurement, selectedUnit, unitCostLabel, sellingPriceLabel, innerUnitCostLabel } from './units.js';
+export { family, unitOptions, innerUnitOptions, setMeasurement, selectedUnit, unitCostLabel, sellingPriceLabel, innerUnitCostLabel, updateInnerUnitCosts } from './units.js';
 export { effectivePrice, itemSellingPriceForUnit, purchaseSellingPriceDisplay } from './pricing.js';
-export { total, pending, shortfall, baseStockOf, pendingBaseFor, add, remove, clear } from './lines.js';
+export { total, pending, shortfall, baseStockOf, pendingBaseFor, add, remove, clear, addPack, removePack, dragStartPack, dragOverPack, dropPack, dragEndPack } from './lines.js';
 export { preview, hasDraft, draftComplete, draft, totalWithDraft, totalProfit, totalProfitClass, totalProfitLabel } from './draft.js';
 export { money, formatQty, profitClass, profitLabel, profitOf, costOfBase } from './formatting.js';
 export { warn } from './utils.js';

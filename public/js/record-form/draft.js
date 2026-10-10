@@ -7,7 +7,7 @@ export function preview() {
 
   if (!(qty > 0) || price < 0) return '';
 
-  return 'Line total: ' + this.money(qty * price);
+  return 'Line total : ' + this.money(qty * price);
 }
 
 /**

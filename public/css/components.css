@@ -361,14 +361,48 @@ tr.draft td {
   border-radius: 10px;
 }
 
-/* Row 2 for sales has 4 columns (Unit, Qty, Cost, Sell Price) */
-.form-row:has([x-text*="Selling price"]) {
+/* Row 2 buy page: 4 columns (Unit, Qty, Cost, Sell Price) */
+.form-row.row-2-buy {
   grid-template-columns: repeat(4, 1fr);
 }
 
-/* Inner unit rows have 3 columns */
+/* Row 2 sales: 4 columns (Unit, Qty, Cost, Sell Price) */
+.form-row.row-2-sale {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* Inner unit rows: 5 columns (Unit+Handle, Per, Cost, Sell Price, Remove) */
 .form-row.inner-unit-row {
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(5, 1fr);
+}
+
+/* Drag-and-drop for inner units */
+.inner-unit-row {
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.inner-unit-row.dragging {
+  opacity: 0.5;
+  transform: scale(1.02);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 15%);
+  z-index: 10;
+}
+
+.inner-unit-row.drag-over {
+  box-shadow: inset 0 0 0 2px var(--ac);
+}
+
+.drag-handle {
+  cursor: grab;
+  color: var(--mut);
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px;
+  user-select: none;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
 }
 
 /* Form field inside the row */

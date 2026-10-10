@@ -64,16 +64,6 @@ export function add() {
     return this.warn('Selling price cannot be less than cost per ' + this.selectedUnit.label);
   }
 
-  // Validate inner unit costs for purchases
-  if (!this.isSale) {
-    for (const pack of this.packs) {
-      if (pack.unit && (pack.cost === '' || pack.cost === null)) {
-        const innerUnit = this.innerUnitOptions.find((u) => u.code === pack.unit);
-        return this.warn('Fill in the cost per ' + (innerUnit ? innerUnit.label : pack.unit));
-      }
-    }
-  }
-
   const problem = this.quantityProblem();
   if (problem) return this.warn(problem);
 
@@ -135,4 +125,35 @@ export function remove(index) {
 
 export function clear() {
   this.lines = [];
+}
+
+export function addPack() {
+  if (this.packs.length >= 10) return;
+  this.packs.push({ unit: '', per: '', cost: '', sellingPrice: '' });
+}
+
+export function removePack(index) {
+  this.packs.splice(index, 1);
+}
+
+// Drag-and-drop reordering for inner units
+
+export function dragStartPack(index) {
+  this.draggingPackIndex = index;
+}
+
+export function dragOverPack(index) {
+  if (index === this.draggingPackIndex) return;
+  this.dragOverPackIndex = index;
+}
+
+export function dropPack(index) {
+  if (index === this.draggingPackIndex) return;
+  const pack = this.packs.splice(this.draggingPackIndex, 1)[0];
+  this.packs.splice(index, 0, pack);
+}
+
+export function dragEndPack() {
+  this.draggingPackIndex = -1;
+  this.dragOverPackIndex = -1;
 }

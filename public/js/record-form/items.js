@@ -38,6 +38,7 @@ export function fetchUnitCost(itemId, unitCode) {
   }
   // Reset selling price when unit changes
   this.sellingPrice = '';
+  if (this.updateInnerUnitCosts) this.updateInnerUnitCosts();
 }
 
 /** Called when the item changes: pin the measurement, reset the unit. */
@@ -74,5 +75,6 @@ export function syncItem() {
     if (item.lastSellingPrice !== undefined && item.lastSellingPrice !== null) {
       this.sellingPrice = item.lastSellingPrice;
     }
+    if (this.updateInnerUnitCosts) this.updateInnerUnitCosts();
   }
 }

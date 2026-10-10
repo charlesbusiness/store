@@ -16,10 +16,9 @@ export function createInitialState(config) {
     unit: '',
     unitCost: '',
     sellingPrice: '',
-    packs: [
-      { unit: '', per: '', cost: '', sellingPrice: '' },
-      { unit: '', per: '', cost: '', sellingPrice: '' },
-    ],
+    packs: [],
     lines: [],
+    draggingPackIndex: -1,
+    dragOverPackIndex: -1,
   };
 }

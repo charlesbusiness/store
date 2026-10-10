@@ -49,3 +49,18 @@ export function innerUnitCostLabel(slot) {
   const innerUnit = this.innerUnitOptions.find((u) => u.code === pack.unit);
   return innerUnit ? 'Cost per ' + innerUnit.label : 'Cost per unit';
 }
+
+export function updateInnerUnitCosts() {
+  if (this.isSale) return;
+  const baseCost = Number(this.unitCost);
+  if (isNaN(baseCost) || baseCost <= 0) return;
+  this.packs = this.packs.map(pack => {
+    if (!pack.unit || !pack.per) return pack;
+    const per = Number(pack.per);
+    if (per <= 0 || isNaN(per)) return pack;
+    const costPerInner = baseCost / per;
+    // Round to 6 decimal places to avoid floating point issues
+    pack.cost = Math.round(costPerInner * 1000000) / 1000000;
+    return pack;
+  });
+}

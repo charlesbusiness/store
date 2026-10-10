@@ -62,12 +62,15 @@ const _recordFormCompat = {
 
   // Methods
   setMeasurement: function() {},
+  updateInnerUnitCosts: function() {},
   onUnitChange: function() {},
   fetchUnitCost: function() {},
   syncItem: function() {},
   add: function() {},
   remove: function() {},
   clear: function() {},
+  addPack: function() {},
+  removePack: function() {},
   warn: function() {},
   money: function() {},
   formatQty: function() {},
@@ -93,6 +96,7 @@ const _recordFormCompat = {
   unitsForMeasurement: function() {},
   innerUnitCostLabel: function() {},
   itemSellingPriceForUnit: function() {},
+  effectiveInnerSellingPrice: function() {},
 
   // Config access
   config: true,

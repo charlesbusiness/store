@@ -21,8 +21,10 @@
     </div>
     @if ($form['isSale'])
       <div>
-        <span>Cost / unit</span>
-        <strong x-text="money(draft.unit_cost)"></strong>
+        <span>Cost / unit
+
+          <strong x-text="money(draft.unit_cost)"></strong>
+        </span>
       </div>
       <div>
         <span>Sell Price / unit</span>
@@ -105,7 +107,6 @@
           <td x-text="line.label"></td>
           <td class="r">
             <span x-text="formatQty(line.qty)"></span> <span x-text="line.unitLabel"></span>
-            <div class="mut" style="font-size:12px" x-show="line.equivalents" x-text="line.equivalents"></div>
           </td>
           @if ($form['isSale'])
             <td class="r" x-text="money(line.unit_cost)"></td>

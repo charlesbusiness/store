@@ -19,8 +19,8 @@ use Illuminate\Validation\Rule;
  */
 class RecordTransactionRequest extends FormRequest
 {
-    /** How many optional pack declarations a line may carry. */
-    private const PACK_SLOTS = 2;
+    /** Maximum number of inner unit declarations per line. */
+    private const MAX_INNER_UNITS = 10;
 
     public function authorize(): bool
     {
@@ -77,48 +77,17 @@ class RecordTransactionRequest extends FormRequest
      */
     private function packRules(): array
     {
-        $rules = [];
-
-        for ($slot = 0; $slot < self::PACK_SLOTS; $slot++) {
-            $unit = "lines.*.inner_units.{$slot}.unit";
-            $per = "lines.*.inner_units.{$slot}.per";
-            $cost = "lines.*.inner_units.{$slot}.cost";
-            $sellingPrice = "lines.*.inner_units.{$slot}.sellingPrice";
-
-            // Both or neither: a count without a unit, or a unit without a count,
-            // is a half-typed row rather than a declaration.
-            $rules[$unit] = [
-                "required_with:{$per}",
-                'nullable',
-                'string',
-                Rule::exists('units', 'code')->where('is_active', true),
-            ];
-
-            $rules[$per] = [
-                "required_with:{$unit}",
-                'nullable',
-                'integer',
-                'min:1',
-                'max:100000',
-            ];
-
-            // Cost is required when unit and per are provided
-            $rules[$cost] = [
-                "required_with:{$unit}",
-                'nullable',
-                'numeric',
-                'min:0',
-            ];
-
-            $rules[$sellingPrice] = [
-                'nullable',
-                'numeric',
-                'min:0',
-                'max:999999999',
-            ];
-        }
-
-        return $rules;
+        return [
+            'lines.*.inner_units' => ['nullable', 'array', 'max:' . self::MAX_INNER_UNITS],
+            'lines.*.inner_units.*.unit' => [
+                'nullable', 'string', Rule::exists('units', 'code')->where('is_active', true),
+            ],
+            'lines.*.inner_units.*.per' => [
+                'nullable', 'integer', 'min:1', 'max:100000',
+            ],
+            'lines.*.inner_units.*.cost' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.inner_units.*.sellingPrice' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+        ];
     }
 
     /**
@@ -151,6 +120,10 @@ class RecordTransactionRequest extends FormRequest
             'lines.*.unit_price' => 'selling price per unit',
             'lines.*.unit_cost' => 'cost per unit',
             'lines.*.selling_price' => 'selling price per unit',
+            'lines.*.inner_units' => 'inner units',
+            'lines.*.inner_units.*.unit' => 'inner unit',
+            'lines.*.inner_units.*.per' => 'inner unit quantity',
+            'lines.*.inner_units.*.cost' => 'inner unit cost',
             'lines.*.inner_units.*.sellingPrice' => 'inner unit selling price',
         ];
     }
