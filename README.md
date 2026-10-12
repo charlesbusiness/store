@@ -223,6 +223,52 @@ There is no JS test runner in this project (no Node), so the startup contract is
 asserted by a PHP feature test and should still be re-checked in a browser if you
 touch the layout's script tags.
 
+## Troubleshooting
+
+### No Units Displaying (Only Family Dropdown Has Data)
+
+**Symptoms**: Measurement/Family dropdown works, but Unit dropdown is empty.
+
+**Root Cause**: UnitSeeder not run on the environment, so `config.units` is empty.
+
+**Fix**:
+```bash
+php artisan db:seed --class=UnitSeeder
+```
+
+**Verification**:
+```bash
+# Check units exist
+php artisan tinker --execute="echo 'Units: ' . \App\Models\Unit::count()"
+
+# Check active units per family
+php artisan tinker --execute="\App\Models\Unit::where('is_active', true)->get()->groupBy('family')->map->count()"
+```
+
+**Prevention**: Include `UnitSeeder` in your deployment pipeline after migrations.
+
+## Deployment Setup
+
+Run these commands after deploying to a new environment:
+
+```bash
+# 1. Run migrations
+php artisan migrate --force
+
+# 2. Seed units catalogue (required for forms to work)
+php artisan db:seed --class=UnitSeeder --force
+
+# 3. (Optional) Seed demo data
+php artisan db:seed --class=DemoLedgerSeeder --force
+
+# 4. Clear caches
+php artisan config:clear
+php artisan route:clear
+php artisan view:clear
+```
+
+> **Note**: The UnitSeeder is essential - without it, the Unit dropdown will be empty on sell/buy forms.
+
 ## Notes
 
 - `docs/inventory-original.html` is the original design this was ported from,
