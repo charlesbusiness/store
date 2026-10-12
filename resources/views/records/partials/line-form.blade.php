@@ -12,9 +12,9 @@
       {{-- Row 1: Item name, Date, Measurement family --}}
       <div class="form-row">
         @if ($form['isSale'])
-          <label class="form-field">
+          <label class="form-field searchable-select-field">
             Item
-            <div x-data="searchableSelect" 
+            <div class="searchable-select-wrapper" x-data="searchableSelect" 
                  :items="items"
                  x-model="itemId"
                  @model="syncItem()">

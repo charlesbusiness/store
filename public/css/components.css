@@ -494,6 +494,15 @@ td[rowspan] {
 }
 
 /* Searchable Select Dropdown */
+.searchable-select-wrapper {
+  width: 100%;
+}
+
+/* Override form-field flex layout for searchable select to allow dropdown to escape */
+.form-field.searchable-select-field {
+  display: block;
+}
+
 .searchable-select {
   position: relative;
   width: 100%;
