@@ -59,6 +59,10 @@ export function syncItem() {
     if (this.unit) {
       this.fetchUnitCost(item.id, this.unit);
     }
+    // Prefill selling price from purchase history for the default unit
+    if (item.sellingPricePerUnitByUnit && item.sellingPricePerUnitByUnit[this.unit] !== undefined) {
+      this.sellingPrice = item.sellingPricePerUnitByUnit[this.unit];
+    }
   } else if (!this.isSale && item) {
     // Prefill the declared packs so a repeat receipt does not have to be retyped.
     (item.packs || []).forEach((pack, slot) => {
