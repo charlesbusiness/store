@@ -25,6 +25,7 @@ import {
   itemSellingPriceForUnit, 
   purchaseSellingPriceDisplay 
 } from './pricing.js?v=20261009c';
+import { searchableSelect } from './searchable-select.js';
 import { 
   total, 
   pending, 
@@ -84,6 +85,9 @@ export function createRecordForm(config) {
     onUnitChange,
     fetchUnitCost,
     syncItem,
+
+    // From searchable-select.js
+    searchableSelect: searchableSelect(),
 
     // From units.js
     get family() { return family.call(this); },
@@ -162,3 +166,4 @@ export { total, pending, shortfall, baseStockOf, pendingBaseFor, add, remove, cl
 export { preview, hasDraft, draftComplete, draft, totalWithDraft, totalProfit, totalProfitClass, totalProfitLabel } from './draft.js';
 export { money, formatQty, profitClass, profitLabel, profitOf, costOfBase } from './formatting.js';
 export { warn } from './utils.js';
+export { searchableSelect } from './searchable-select.js';

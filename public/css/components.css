@@ -492,3 +492,131 @@ td[rowspan] {
   background: var(--warn);
   color: #000;
 }
+
+/* Searchable Select Dropdown */
+.searchable-select {
+  position: relative;
+  width: 100%;
+}
+
+.searchable-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: 15px inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.searchable-select-trigger:hover {
+  border-color: var(--mut);
+}
+
+.searchable-select-trigger:focus {
+  outline: 2px solid var(--ac);
+  border-color: transparent;
+}
+
+.searchable-select-trigger .chevron {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--mut);
+  transition: transform 0.15s;
+}
+
+.searchable-select-trigger[aria-expanded="true"] .chevron {
+  transform: rotate(180deg);
+}
+
+.searchable-select-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 15%);
+  z-index: 50;
+  max-height: 280px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.searchable-select-search {
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 10px 12px;
+  font: 15px inherit;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.searchable-select-search:focus {
+  outline: none;
+}
+
+.searchable-select-options {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  overflow-y: auto;
+  max-height: 220px;
+}
+
+.searchable-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+  gap: 12px;
+}
+
+.searchable-select-option:hover,
+.searchable-select-option.highlighted {
+  background: var(--bg);
+}
+
+.searchable-select-option span:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.searchable-select-option .stock-label {
+  color: var(--mut);
+  font-size: 12px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.searchable-select-empty {
+  padding: 16px 12px;
+  color: var(--mut);
+  text-align: center;
+  font-size: 14px;
+}
+
+@media (max-width: 480px) {
+  .searchable-select-dropdown {
+    max-height: 240px;
+  }
+  
+  .searchable-select-options {
+    max-height: 180px;
+  }
+}

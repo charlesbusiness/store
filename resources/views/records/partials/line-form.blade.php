@@ -14,12 +14,49 @@
         @if ($form['isSale'])
           <label class="form-field">
             Item
-            <select x-model="itemId" @change="syncItem()">
-              <option value="">Choose an item</option>
-              <template x-for="item in items" :key="item.id">
-                <option :value="item.id" x-text="item.name + ' — ' + item.stockLabel + ' left'"></option>
-              </template>
-            </select>
+            <div x-data="searchableSelect" 
+                 :items="items"
+                 x-model="itemId"
+                 @model="syncItem()">
+              <div class="searchable-select" @click.outside="handleClickOutside($event)">
+                <button type="button" 
+                        class="searchable-select-trigger" 
+                        @click="open()"
+                        @keydown="handleKeydown($event)"
+                        :aria-expanded="isOpen">
+                  <span x-text="getSelectedLabel()"></span>
+                  <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </button>
+                <div class="searchable-select-dropdown" x-show="isOpen" x-cloak>
+                  <input type="search" 
+                         class="searchable-select-search" 
+                         placeholder="Search items..."
+                         x-ref="searchInput"
+                         x-model="searchQuery"
+                         @input="handleSearchInput()"
+                         @keydown="handleInputKeydown($event)"
+                         @click.stop>
+                  <ul class="searchable-select-options" role="listbox">
+                    <template x-for="(item, index) in filteredItems" :key="item.id">
+                      <li class="searchable-select-option"
+                          :class="{ highlighted: highlightedIndex === index }"
+                          role="option"
+                          @click="selectItem(item)"
+                          @mouseenter="highlightedIndex = index"
+                          x-ref="option">
+                        <span x-text="item.name"></span>
+                        <span class="stock-label" x-text="item.stockLabel + ' left'"></span>
+                      </li>
+                    </template>
+                    <template x-if="filteredItems.length === 0">
+                      <li class="searchable-select-empty">No items found</li>
+                    </template>
+                  </ul>
+                </div>
+              </div>
+            </div>
           </label>
         @else
           <label class="form-field">

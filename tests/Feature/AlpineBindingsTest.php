@@ -177,7 +177,7 @@ class AlpineBindingsTest extends TestCase
         // resolving to a getter that lives over there would fail at runtime while
         // this test still passed -- which is exactly the class of bug it exists
         // for. Add a new mixin here when one is introduced.
-        foreach (['record-form.js', 'packs.js', 'record-display.js'] as $file) {
+        foreach (['record-form.js', 'packs.js', 'record-display.js', 'record-form/searchable-select.js'] as $file) {
             $javascript = file_get_contents(public_path('js/'.$file));
 
             // State keys and accessors: "name:", "get name() {", "set name(v) {"
