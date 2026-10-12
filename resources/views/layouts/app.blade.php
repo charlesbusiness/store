@@ -48,6 +48,7 @@
   {{-- Load ES modules; each calls markModuleReady(name) after its exports. --}}
   <script type="module" src="{{ asset('js/packs.js?v=' . time()) }}"></script>
   <script type="module" src="{{ asset('js/record-form.js?v=' . time()) }}"></script>
+  <script type="module" src="{{ asset('js/searchable-select.js?v=' . time()) }}"></script>
   <script type="module" src="{{ asset('js/record-display.js?v=' . time()) }}"></script>
   @stack('head')
 </head>
