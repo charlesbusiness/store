@@ -10,6 +10,7 @@ use App\Services\Record\RecordWriter;
 use App\Services\Record\SaleRecorder;
 use App\Support\Concerns\FormatsValues;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 /**
@@ -30,10 +31,12 @@ abstract class RecordController extends Controller
 
     abstract protected function type(): RecordType;
 
-    public function create(): View
+    public function create(Request $request): View
     {
+        $page = max(1, (int) $request->query('page', 1));
+
         return view('records.create', [
-            'form' => $this->formData->build($this->type()),
+            'form' => $this->formData->build($this->type(), $page),
         ]);
     }
 

@@ -168,6 +168,25 @@
         </tbody>
       </table>
     </div>
+
+    {{-- Pagination --}}
+    @if ($form['recentTotalPages'] > 1)
+      <div class="pagination" style="display:flex; justify-content:center; gap:8px; margin-top:16px; flex-wrap:wrap;">
+        @if ($form['recentPage'] > 1)
+          <a href="{{ route($form['isSale'] ? 'sales.create' : 'purchases.create', ['page' => $form['recentPage'] - 1]) }}" class="btn alt sm">Prev</a>
+        @endif
+
+        @for ($i = 1; $i <= $form['recentTotalPages']; $i++)
+          <a href="{{ route($form['isSale'] ? 'sales.create' : 'purchases.create', ['page' => $i]) }}"
+             class="{{ $i === $form['recentPage'] ? 'btn' : 'btn alt' }} sm"
+             style="min-width:40px; text-align:center;">{{ $i }}</a>
+        @endfor
+
+        @if ($form['recentPage'] < $form['recentTotalPages'])
+          <a href="{{ route($form['isSale'] ? 'sales.create' : 'purchases.create', ['page' => $form['recentPage'] + 1]) }}" class="btn alt sm">Next</a>
+        @endif
+      </div>
+    @endif
   @else
     <div class="e">Nothing yet.</div>
   @endif

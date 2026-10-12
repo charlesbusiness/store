@@ -70,4 +70,31 @@ class BucketResolver extends Service
             PeriodMode::Monthly => $anchor->subMonths($steps),
         };
     }
+
+    /**
+     * Generate buckets for a custom date range.
+     *
+     * @return array<int, array{key: string, label: string, start: CarbonImmutable}>
+     */
+    public function bucketsForRange(PeriodMode $mode, CarbonImmutable $start, CarbonImmutable $end): array
+    {
+        $buckets = [];
+        $current = $mode->bucketStart($start);
+
+        while ($current <= $end) {
+            $buckets[] = [
+                'key' => $this->key($mode, $current),
+                'label' => $mode->bucketLabel($this->key($mode, $current)),
+                'start' => $current,
+            ];
+
+            $current = match ($mode) {
+                PeriodMode::Daily => $current->addDay(),
+                PeriodMode::Weekly => $current->addWeek(),
+                PeriodMode::Monthly => $current->addMonth(),
+            };
+        }
+
+        return $buckets;
+    }
 }

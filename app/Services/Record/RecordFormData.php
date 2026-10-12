@@ -39,8 +39,14 @@ class RecordFormData extends Service
     /**
      * @return array<string, mixed>
      */
-    public function build(RecordType $type): array
+    public function build(RecordType $type, int $page = 1): array
     {
+        $limit = (int) config('stockly.recent_limit', 8);
+        $page = max(1, $page);
+        $offset = ($page - 1) * $limit;
+        $total = $this->activity->transactionsOf($type);
+        $totalPages = (int) ceil($total / $limit);
+
         return [
             'type' => $type->value,
             'isSale' => $type === RecordType::Sale,
@@ -52,8 +58,11 @@ class RecordFormData extends Service
             'units' => $this->unitCatalogue(),
             'currency' => config('stockly.currency'),
             'moneyDecimals' => (int) config('stockly.money_decimals', 2),
-            'recent' => $this->recentLines($type),
+            'recent' => $this->recentLines($type, $limit, $offset),
             'recentTotal' => $this->activity->transactionsOf($type),
+            'recentLimit' => $limit,
+            'recentPage' => $page,
+            'recentTotalPages' => $totalPages,
         ];
     }
 
@@ -177,11 +186,13 @@ class RecordFormData extends Service
      * snapshot, never off a live average, so a sale recorded last month still
      * shows what it made last month.
      *
+     * @param  int  $limit
+     * @param  int  $offset
      * @return array<int, array<string, mixed>>
      */
-    private function recentLines(RecordType $type): array
+    private function recentLines(RecordType $type, int $limit, int $offset): array
     {
-        return $this->activity->recentGrouped($type)
+        return $this->activity->recentGrouped($type, $limit, $offset)
             ->map(fn (Transaction $transaction) => [
                 'id' => $transaction->id,
                 'date' => $transaction->transacted_on->toDateString(),

@@ -34,7 +34,7 @@ class ActivityReader extends Service
      *
      * @return EloquentCollection<int, Transaction>
      */
-    public function recentGrouped(RecordType $type, ?int $limit = null): EloquentCollection
+    public function recentGrouped(RecordType $type, ?int $limit = null, int $offset = 0): EloquentCollection
     {
         $limit ??= (int) config('stockly.recent_limit', 8);
 
@@ -43,6 +43,7 @@ class ActivityReader extends Service
             ->with(['lines.item.displayUnit', 'lines.unit'])
             ->orderByDesc('transacted_on')
             ->orderByDesc('id')
+            ->offset($offset)
             ->limit($limit)
             ->get();
     }

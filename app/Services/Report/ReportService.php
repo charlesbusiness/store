@@ -19,6 +19,8 @@ use Illuminate\Support\Collection;
  * date falls in, while the stock valuation covers everything ever bought. That
  * split is the original ledger's behaviour and is deliberate: the figures
  * answer "how did this period go" and "what is on the shelf right now".
+ *
+ * Supports optional custom date range [start, end] for flexible reporting.
  */
 class ReportService extends Service
 {
@@ -28,21 +30,35 @@ class ReportService extends Service
         private readonly StockLedger $ledger,
     ) {}
 
-    public function summary(PeriodMode $mode, CarbonImmutable $anchor): ReportSummary
+    /**
+     * @param  ?array{0: CarbonImmutable, 1: CarbonImmutable}  $dateRange  [start, end]
+     */
+    public function summary(PeriodMode $mode, CarbonImmutable $anchor, ?array $dateRange = null): ReportSummary
     {
-        $current = $this->buckets->current($mode, $anchor);
-        $lines = $this->windowLines($mode, $anchor);
+        $current = $dateRange
+            ? $this->bucketForEnd($mode, $anchor)
+            : $this->buckets->current($mode, $anchor);
 
-        $inPeriod = $lines->filter(
-            fn (TransactionLine $line) => $mode->bucketKey($line->transaction->transacted_on->toImmutable()) === $current['key']
-        );
+        $lines = $this->windowLines($mode, $anchor, $dateRange);
 
-        $series = $this->trend->build($this->buckets->buckets($mode, $anchor), $lines, $mode);
+        $inPeriod = $dateRange
+            ? $lines // All lines in the custom range
+            : $lines->filter(
+                fn (TransactionLine $line) => $mode->bucketKey($line->transaction->transacted_on->toImmutable()) === $current['key']
+            );
+
+        $seriesBuckets = $dateRange
+            ? $this->buckets->bucketsForRange($mode, $dateRange[0], $dateRange[1])
+            : $this->buckets->buckets($mode, $anchor);
+
+        $series = $this->trend->build($seriesBuckets, $lines, $mode);
 
         return new ReportSummary(
             mode: $mode,
             anchor: $anchor,
-            periodLabel: $current['label'],
+            periodLabel: $dateRange
+                ? $this->periodLabelForRange($mode, $dateRange[0], $dateRange[1])
+                : $current['label'],
             sales: $this->totalOf($inPeriod, RecordType::Sale),
             purchases: $this->totalOf($inPeriod, RecordType::Purchase),
             stockValue: $this->ledger->totalStockValue(),
@@ -57,25 +73,46 @@ class ReportService extends Service
      * Every line inside the visible window, so the chart and the period figures
      * come from a single query.
      *
+     * @param  ?array{0: CarbonImmutable, 1: CarbonImmutable}  $dateRange  [start, end]
      * @return Collection<int, TransactionLine>
      */
-    private function windowLines(PeriodMode $mode, CarbonImmutable $anchor): Collection
+    private function windowLines(PeriodMode $mode, CarbonImmutable $anchor, ?array $dateRange = null): Collection
     {
-        [$start] = $mode->windowStart($anchor);
-        [, $end] = $mode->bucketRange($anchor);
+        if ($dateRange) {
+            $start = $dateRange[0];
+            $end = $dateRange[1];
+        } else {
+            [$start] = $mode->windowStart($anchor);
+            [, $end] = $mode->bucketRange($anchor);
+        }
 
         return TransactionLine::query()
             ->join('transactions', 'transactions.id', '=', 'transaction_lines.transaction_id')
-            // whereDate rather than a string range, so the comparison does not
-            // depend on how a given driver stores a date-only column.
             ->whereDate('transactions.transacted_on', '>=', $start->toDateString())
             ->whereDate('transactions.transacted_on', '<=', $end->toDateString())
-            // Both tables are joined, so the columns have to be named rather
-            // than left as *, or id and timestamps collide.
             ->select('transaction_lines.*')
             ->with(['item.displayUnit', 'unit', 'transaction'])
             ->orderBy('transactions.transacted_on')
             ->get();
+    }
+
+    private function bucketForEnd(PeriodMode $mode, CarbonImmutable $anchor): array
+    {
+        $start = $mode->bucketStart($anchor);
+        return [
+            'key' => $mode->bucketKey($start),
+            'label' => $mode->periodLabel($anchor),
+            'start' => $start,
+        ];
+    }
+
+    private function periodLabelForRange(PeriodMode $mode, CarbonImmutable $start, CarbonImmutable $end): string
+    {
+        return match ($mode) {
+            PeriodMode::Daily => $start->format('D M j Y') . ' – ' . $end->format('D M j Y'),
+            PeriodMode::Weekly => 'Week of ' . $start->format('M j') . ' – ' . $end->format('M j'),
+            PeriodMode::Monthly => $start->format('F Y') . ' – ' . $end->format('F Y'),
+        };
     }
 
     private function totalOf(Collection $lines, RecordType $type): float

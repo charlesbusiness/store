@@ -11,8 +11,8 @@ use Illuminate\View\View;
 /**
  * The reports tab: period figures, the trend chart and per-item tables.
  *
- * The period and anchor date arrive as query parameters, so switching grain is
- * a plain GET and the whole page re-renders server-side.
+ * The period can be specified either as an anchor date + mode (legacy)
+ * or as a custom start/end date range. Both arrive as query parameters.
  */
 class ReportController extends Controller
 {
@@ -21,11 +21,15 @@ class ReportController extends Controller
     public function index(Request $request): View
     {
         $mode = $this->mode($request);
-        $anchor = $this->anchor($request);
+        $dateRange = $this->dateRange($request);
+        $anchor = $dateRange[1]; // end date
+
+        $summary = $this->reports->summary($mode, $anchor, $dateRange);
 
         return view('reports.index', [
-            'summary' => $this->reports->summary($mode, $anchor),
+            'summary' => $summary,
             'modes' => PeriodMode::cases(),
+            'dateRange' => $dateRange,
         ]);
     }
 
@@ -36,21 +40,64 @@ class ReportController extends Controller
     }
 
     /**
-     * Fall back to today rather than erroring on a hand-edited query string.
-     * createFromFormat throws on nonsense input, so it is guarded explicitly.
+     * Parse custom date range from query params.
+     * Returns [start, end] as CarbonImmutable.
+     * Rules:
+     * - Neither provided → today only
+     * - Both provided → custom range (start ≤ end)
+     * - Start only → start to today
+     * - End only → single day (end date)
+     * - Invalid format → falls back to today
      */
-    private function anchor(Request $request): CarbonImmutable
+    private function dateRange(Request $request): array
     {
-        $raw = trim((string) $request->query('anchor', ''));
+        $startRaw = trim((string) $request->query('start_date', ''));
+        $endRaw = trim((string) $request->query('end_date', ''));
 
-        if ($raw !== '') {
+        // Neither provided → today only
+        if ($startRaw === '' && $endRaw === '') {
+            $today = CarbonImmutable::today();
+            return [$today->startOfDay(), $today->endOfDay()];
+        }
+
+        // Both provided → custom range
+        if ($startRaw !== '' && $endRaw !== '') {
             try {
-                return CarbonImmutable::createFromFormat('Y-m-d', $raw)->startOfDay();
+                $start = CarbonImmutable::createFromFormat('Y-m-d', $startRaw)->startOfDay();
+                $end = CarbonImmutable::createFromFormat('Y-m-d', $endRaw)->endOfDay();
+                if ($start <= $end) {
+                    return [$start, $end];
+                }
             } catch (\Throwable) {
-                // Not a date at all, so fall through to today.
+                // Invalid format, fall through to today
             }
         }
 
-        return CarbonImmutable::today();
+        // Start only → start to today
+        if ($startRaw !== '') {
+            try {
+                $start = CarbonImmutable::createFromFormat('Y-m-d', $startRaw)->startOfDay();
+                $end = CarbonImmutable::today()->endOfDay();
+                if ($start <= $end) {
+                    return [$start, $end];
+                }
+            } catch (\Throwable) {
+                // Invalid format, fall through to today
+            }
+        }
+
+        // End only → single day
+        if ($endRaw !== '') {
+            try {
+                $end = CarbonImmutable::createFromFormat('Y-m-d', $endRaw);
+                return [$end->startOfDay(), $end->endOfDay()];
+            } catch (\Throwable) {
+                // Invalid format, fall through to today
+            }
+        }
+
+        // Fallback: today
+        $today = CarbonImmutable::today();
+        return [$today->startOfDay(), $today->endOfDay()];
     }
 }
