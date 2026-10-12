@@ -47,9 +47,6 @@
     </form>
   </div>
 
-  <p class="mut" style="text-align:center;font-size:12px">
-    Accounts are created by an administrator.
-  </p>
 </div>
 </body>
 </html>
