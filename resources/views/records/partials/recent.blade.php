@@ -21,6 +21,26 @@
     @endif
   </div>
 
+  {{-- Buy page search filters --}}
+  @unless ($form['isSale'])
+    <form method="GET" class="filter-form" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:end;">
+      <label class="form-field" style="min-width:180px;">
+        <span>Item name</span>
+        <input type="search" name="search" value="{{ $form['recentSearch'] ?? '' }}" placeholder="Search items...">
+      </label>
+      <label class="form-field" style="min-width:140px;">
+        <span>From</span>
+        <input type="date" name="date_from" value="{{ $form['recentDateFrom'] ?? '' }}">
+      </label>
+      <label class="form-field" style="min-width:140px;">
+        <span>To</span>
+        <input type="date" name="date_to" value="{{ $form['recentDateTo'] ?? '' }}">
+      </label>
+      <button type="submit" class="btn sm" style="height:38px;">Filter</button>
+      <a href="{{ route('purchases.create') }}" class="btn alt sm" style="height:38px;">Clear</a>
+    </form>
+  @endunless
+
   @if (count($form['recent']))
     <div class="sc">
       <table>
@@ -172,18 +192,28 @@
     {{-- Pagination --}}
     @if ($form['recentTotalPages'] > 1)
       <div class="pagination" style="display:flex; justify-content:center; gap:8px; margin-top:16px; flex-wrap:wrap;">
+        @php
+          $baseParams = ['page' => 1];
+          if (!$form['isSale']) {
+            $baseParams = array_merge($baseParams, [
+              'search' => $form['recentSearch'] ?? '',
+              'date_from' => $form['recentDateFrom'] ?? '',
+              'date_to' => $form['recentDateTo'] ?? '',
+            ]);
+          }
+        @endphp
         @if ($form['recentPage'] > 1)
-          <a href="{{ route($form['isSale'] ? 'sales.create' : 'purchases.create', ['page' => $form['recentPage'] - 1]) }}" class="btn alt sm">Prev</a>
+          <a href="{{ route($form['isSale'] ? 'sales.create' : 'purchases.create', array_merge($baseParams, ['page' => $form['recentPage'] - 1])) }}" class="btn alt sm">Prev</a>
         @endif
 
         @for ($i = 1; $i <= $form['recentTotalPages']; $i++)
-          <a href="{{ route($form['isSale'] ? 'sales.create' : 'purchases.create', ['page' => $i]) }}"
+          <a href="{{ route($form['isSale'] ? 'sales.create' : 'purchases.create', array_merge($baseParams, ['page' => $i])) }}"
              class="{{ $i === $form['recentPage'] ? 'btn' : 'btn alt' }} sm"
              style="min-width:40px; text-align:center;">{{ $i }}</a>
         @endfor
 
         @if ($form['recentPage'] < $form['recentTotalPages'])
-          <a href="{{ route($form['isSale'] ? 'sales.create' : 'purchases.create', ['page' => $form['recentPage'] + 1]) }}" class="btn alt sm">Next</a>
+          <a href="{{ route($form['isSale'] ? 'sales.create' : 'purchases.create', array_merge($baseParams, ['page' => $form['recentPage'] + 1])) }}" class="btn alt sm">Next</a>
         @endif
       </div>
     @endif

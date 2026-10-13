@@ -14,6 +14,7 @@ use App\Services\Stock\StockLedger;
 use App\Services\Stock\UnitCatalog;
 use App\Support\Packs;
 use App\Support\Service;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
 /**
@@ -39,12 +40,33 @@ class RecordFormData extends Service
     /**
      * @return array<string, mixed>
      */
-    public function build(RecordType $type, int $page = 1): array
+    public function build(RecordType $type, int $page = 1, array $filters = []): array
     {
         $limit = (int) config('stockly.recent_limit', 8);
         $page = max(1, $page);
         $offset = ($page - 1) * $limit;
-        $total = $this->activity->transactionsOf($type);
+
+        // Parse filters
+        $search = $filters['search'] ?? '';
+        $dateFrom = $this->parseDate($filters['date_from'] ?? '');
+        $dateTo = $this->parseDate($filters['date_to'] ?? '');
+
+        $hasFilters = $search !== '' || $dateFrom !== null || $dateTo !== null;
+
+        if ($hasFilters) {
+            $total = $this->activity->transactionsFiltered(
+                $type,
+                $search ?: null,
+                $dateFrom,
+                $dateTo
+            );
+        } else {
+            $total = $this->activity->transactionsOf($type);
+        }
+
+        $limit = (int) config('stockly.recent_limit', 8);
+        $page = max(1, $page);
+        $offset = ($page - 1) * $limit;
         $totalPages = (int) ceil($total / $limit);
 
         return [
@@ -58,12 +80,31 @@ class RecordFormData extends Service
             'units' => $this->unitCatalogue(),
             'currency' => config('stockly.currency'),
             'moneyDecimals' => (int) config('stockly.money_decimals', 2),
-            'recent' => $this->recentLines($type, $limit, $offset),
-            'recentTotal' => $this->activity->transactionsOf($type),
+            'recent' => $hasFilters
+                ? $this->recentLinesFiltered($type, $limit, $offset, $search, $dateFrom, $dateTo)
+                : $this->recentLines($type, $limit, $offset),
+            'recentTotal' => $total,
             'recentLimit' => $limit,
             'recentPage' => $page,
             'recentTotalPages' => $totalPages,
+            // Filter state for the view
+            'recentSearch' => $search,
+            'recentDateFrom' => $dateFrom?->toDateString() ?? '',
+            'recentDateTo' => $dateTo?->toDateString() ?? '',
         ];
+    }
+
+    /**
+     * Parse a date string (Y-m-d) into CarbonImmutable, or return null if invalid/empty.
+     */
+    private function parseDate(?string $date): ?\Carbon\CarbonImmutable
+    {
+        if (!$date || $date === '') return null;
+        try {
+            return \Carbon\CarbonImmutable::createFromFormat('Y-m-d', $date)->startOfDay();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -211,6 +252,49 @@ class RecordFormData extends Service
                 // Only meaningful once every line has a cost. A single unknown line
                 // makes the whole subtotal unknown, and a partial sum that looked
                 // complete would be worse than no figure at all.
+                'total' => round((float) $transaction->lines->sum('total'), 2),
+                'cost' => $this->summedCost($transaction->lines),
+                'profit' => $this->summedProfit($transaction->lines),
+            ])
+            ->all();
+    }
+
+    /**
+     * Filtered recent transactions for the buy page.
+     *
+     * @param  ?string  $search
+     * @param  ?\Carbon\CarbonImmutable  $dateFrom
+     * @param  ?\Carbon\CarbonImmutable  $dateTo
+     * @return array<int, array<string, mixed>>
+     */
+    private function recentLinesFiltered(
+        RecordType $type,
+        int $limit,
+        int $offset,
+        ?string $search,
+        ?\Carbon\CarbonImmutable $dateFrom,
+        ?\Carbon\CarbonImmutable $dateTo
+    ): array {
+        return $this->activity->recentGroupedFiltered(
+            $type, $limit, $offset,
+            $search ?: null,
+            $dateFrom,
+            $dateTo
+        )
+            ->map(fn (Transaction $transaction) => [
+                'id' => $transaction->id,
+                'date' => $transaction->transacted_on->toDateString(),
+                'dateLabel' => $transaction->transacted_on->toFormattedDateString(),
+                'paid' => $transaction->paid,
+                'lines' => $transaction->lines->map(fn (TransactionLine $line) => [
+                    'id' => $line->id,
+                    'name' => $line->item?->name ?? '(deleted item)',
+                    'quantity' => $line->unit?->quantityLabel($line->qty) ?? (string) $line->qty,
+                    'qty' => (float) $line->qty,
+                    'total' => round((float) $line->total, 2),
+                    'cost' => $line->cost === null ? null : round((float) $line->cost, 2),
+                    'profit' => $line->profit() === null ? null : round($line->profit(), 2),
+                ])->all(),
                 'total' => round((float) $transaction->lines->sum('total'), 2),
                 'cost' => $this->summedCost($transaction->lines),
                 'profit' => $this->summedProfit($transaction->lines),

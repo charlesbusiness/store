@@ -17,7 +17,7 @@
             <div class="searchable-select-wrapper" x-data="searchableSelect" 
                  :items="items"
                  x-model="itemId"
-                 @model="syncItem()">
+                 @input="syncItem()">
               <div class="searchable-select" @click.outside="handleClickOutside($event)">
                 <button type="button" 
                         class="searchable-select-trigger" 

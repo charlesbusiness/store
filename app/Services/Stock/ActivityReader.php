@@ -6,6 +6,7 @@ use App\Enums\RecordType;
 use App\Models\Item;
 use App\Models\Transaction;
 use App\Support\Service;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -22,6 +23,21 @@ class ActivityReader extends Service
     public function transactionsOf(RecordType $type): int
     {
         return Transaction::query()->where('type', $type->value)->count();
+    }
+
+    /**
+     * Total transactions matching filters (for accurate "showing X of Y" count).
+     */
+    public function transactionsFiltered(
+        RecordType $type,
+        ?string $search = null,
+        ?CarbonImmutable $dateFrom = null,
+        ?CarbonImmutable $dateTo = null
+    ): int {
+        return $this->applyFilters(
+            Transaction::query()->where('type', $type->value),
+            $search, $dateFrom, $dateTo
+        )->count();
     }
 
     /**
@@ -46,6 +62,65 @@ class ActivityReader extends Service
             ->offset($offset)
             ->limit($limit)
             ->get();
+    }
+
+    /**
+     * Filtered recent transactions for the buy page.
+     *
+     * Filters:
+     * - search: item name LIKE (case-insensitive)
+     * - dateFrom: transaction date >= dateFrom
+     * - dateTo: transaction date <= dateTo
+     *
+     * @return EloquentCollection<int, Transaction>
+     */
+    public function recentGroupedFiltered(
+        RecordType $type,
+        ?int $limit = null,
+        int $offset = 0,
+        ?string $search = null,
+        ?CarbonImmutable $dateFrom = null,
+        ?CarbonImmutable $dateTo = null
+    ): EloquentCollection
+    {
+        $limit ??= (int) config('stockly.recent_limit', 8);
+
+        return $this->applyFilters(
+            Transaction::query()->where('type', $type->value),
+            $search, $dateFrom, $dateTo
+        )
+            ->with(['lines.item.displayUnit', 'lines.unit'])
+            ->orderByDesc('transacted_on')
+            ->orderByDesc('id')
+            ->offset($offset)
+            ->limit($limit)
+            ->get();
+    }
+
+    /**
+     * Apply search and date filters to a transaction query.
+     */
+    private function applyFilters(
+        $query,
+        ?string $search,
+        ?CarbonImmutable $dateFrom,
+        ?CarbonImmutable $dateTo
+    ) {
+        if ($search !== null && $search !== '') {
+            $query->whereHas('lines.item', function ($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%");
+            });
+        }
+
+        if ($dateFrom !== null) {
+            $query->whereDate('transacted_on', '>=', $dateFrom->toDateString());
+        }
+
+        if ($dateTo !== null) {
+            $query->whereDate('transacted_on', '<=', $dateTo->toDateString());
+        }
+
+        return $query;
     }
 
     /**

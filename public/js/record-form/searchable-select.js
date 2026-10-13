@@ -41,7 +41,7 @@ export function searchableSelect() {
 
     selectItem(item) {
       this.model = item.id;
-      this.$dispatch('model', item.id);
+      this.$dispatch('input', item.id);
       this.onChange?.(item);
       this.close();
     },

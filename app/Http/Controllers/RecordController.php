@@ -34,9 +34,19 @@ abstract class RecordController extends Controller
     public function create(Request $request): View
     {
         $page = max(1, (int) $request->query('page', 1));
+        
+        // Only buy page supports filters
+        $filters = [];
+        if ($this->type() === \App\Enums\RecordType::Purchase) {
+            $filters = [
+                'search' => $request->query('search', ''),
+                'date_from' => $request->query('date_from', ''),
+                'date_to' => $request->query('date_to', ''),
+            ];
+        }
 
         return view('records.create', [
-            'form' => $this->formData->build($this->type(), $page),
+            'form' => $this->formData->build($this->type(), $page, $filters),
         ]);
     }
 
