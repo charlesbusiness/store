@@ -9,6 +9,16 @@ interface User {
     email: string;
 }
 
+interface LoginResponse {
+    user?: User;
+    token?: string;
+    message?: string;
+}
+
+interface UserResponse {
+    user?: User;
+}
+
 interface AuthState {
     user: User | null;
     token: string | null;
@@ -23,7 +33,7 @@ export const useAuthStore = create<AuthState>()(
             user: null,
             token: null,
             login: async (email: string, password: string) => {
-                const response = await api.post('/auth/login', { email, password });
+                const response = await api.post<LoginResponse, LoginResponse>('/auth/login', { email, password });
 
                 if (!response.user || !response.token) {
                     throw new Error(response.message || 'Login failed');
@@ -40,7 +50,7 @@ export const useAuthStore = create<AuthState>()(
             },
             fetchUser: async () => {
                 try {
-                    const response = await api.get('/auth/user');
+                    const response = await api.get<UserResponse, UserResponse>('/auth/user');
 
                     const user = response.user;
 
