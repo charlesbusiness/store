@@ -30,6 +30,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/purchases', [PurchaseController::class, 'index']);
     Route::get('/purchases/form', [PurchaseController::class, 'form']);
     Route::post('/purchases', [PurchaseController::class, 'store'])
+        ->name('purchases.store')
         ->defaults('type', \App\Enums\RecordType::Purchase->value);
     Route::get('/purchases/{purchase}', [PurchaseController::class, 'show']);
     Route::delete('/purchases/{purchase}', [PurchaseController::class, 'destroy']);
@@ -40,6 +41,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/sales', [SaleController::class, 'index']);
     Route::get('/sales/form', [SaleController::class, 'form']);
     Route::post('/sales', [SaleController::class, 'store'])
+        ->name('sales.store')
         ->defaults('type', \App\Enums\RecordType::Sale->value);
     Route::get('/sales/{sale}', [SaleController::class, 'show']);
     Route::delete('/sales/{sale}', [SaleController::class, 'destroy']);

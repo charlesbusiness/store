@@ -58,10 +58,25 @@ class PackReader extends Service
         return $packs;
     }
 
+    /** @var array<int, Packs> */
+    private array $cache = [];
+
     /** The current packs for one item. */
     public function for(Item $item): Packs
     {
-        return $this->forItems([$item])[$item->id] ?? Packs::none();
+        if (isset($this->cache[$item->id])) {
+            return $this->cache[$item->id];
+        }
+
+        $packs = $this->forItems([$item])[$item->id] ?? Packs::none();
+        $this->cache[$item->id] = $packs;
+
+        return $packs;
+    }
+
+    public function clearCache(): void
+    {
+        $this->cache = [];
     }
 
     /**

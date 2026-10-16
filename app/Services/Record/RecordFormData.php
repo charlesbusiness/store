@@ -4,6 +4,7 @@ namespace App\Services\Record;
 
 use App\Enums\RecordType;
 use App\Enums\UnitFamily;
+use App\Models\Item;
 use App\Models\Transaction;
 use App\Models\TransactionLine;
 use App\Services\Stock\ActivityReader;
@@ -110,11 +111,13 @@ class RecordFormData extends Service
     /**
      * Parse a date string (Y-m-d) into CarbonImmutable, or return null if invalid/empty.
      */
-    private function parseDate(?string $date): ?\Carbon\CarbonImmutable
+    private function parseDate(?string $date): ?CarbonImmutable
     {
-        if (!$date || $date === '') return null;
+        if (! $date || $date === '') {
+            return null;
+        }
         try {
-            return \Carbon\CarbonImmutable::createFromFormat('Y-m-d', $date)->startOfDay();
+            return CarbonImmutable::createFromFormat('Y-m-d', $date)->startOfDay();
         } catch (\Throwable) {
             return null;
         }
@@ -128,45 +131,40 @@ class RecordFormData extends Service
      */
     private function sellableItems(): array
     {
-        return $this->items->sellable($this->ledger, $this->activity, $this->packs)
-            ->map(fn (array $row) => [
-                'id' => $row['item']->id,
-                'name' => $row['item']->name,
-                'family' => $row['item']->family->value,
-                'unit' => $row['position']->displayUnit->code,
-                'stock' => $row['position']->displayStock(),
-                'stockLabel' => $row['position']->stockLabel(),
-                'lastPrice' => $row['lastPrice'] === null
-                    ? null
-                    : round($row['lastPrice'], 2),
-                // What this item's stock costs per trading unit, so the form can
-                // show the margin on a line before it is saved. It is the same
-                // average the server freezes onto the line, so the figure the
-                // trader sees is the figure that gets stored -- barring a purchase
-                // landing in between. Null when nothing has ever been bought,
-                // since there is no cost to average yet.
-                'costPerUnit' => $row['position']->bought > 0
-                    ? round($row['position']->costPerDisplayUnit(), 2)
-                    : null,
-                // Cost per unit for each unit in the item's family, for the sell page
-                // to show as readonly when a unit is selected.
-                'costPerUnitByUnit' => $this->costPerUnitByUnit($row['item']),
-                // Selling price per unit for each unit in the item's family (from purchase history),
-                // to show as reference below the selling price input on the sell page.
-                'sellingPricePerUnitByUnit' => $this->costCalculator->sellingPricePerUnitByUnit($row['item']),
-                'packs' => $row['packs']->toArray(),
-            ])
-            ->all();
+        $sellable = $this->items->sellable($this->ledger, $this->activity, $this->packs);
+        $batch = $sellable->map(fn (array $row): array => [
+            'item' => $row['item'],
+            'position' => $row['position'],
+            'packs' => $row['packs'],
+        ])->values()->all();
+        $maps = $this->costCalculator->perUnitMapsForItems($batch);
+
+        return $sellable->map(fn (array $row) => [
+            'id' => $row['item']->id,
+            'name' => $row['item']->name,
+            'family' => $row['item']->family->value,
+            'unit' => $row['position']->displayUnit->code,
+            'stock' => $row['position']->displayStock(),
+            'stockLabel' => $row['position']->stockLabel(),
+            'lastPrice' => $row['lastPrice'] === null
+                ? null
+                : round($row['lastPrice'], 2),
+            'costPerUnit' => $row['position']->bought > 0
+                ? round($row['position']->costPerDisplayUnit(), 2)
+                : null,
+            'costPerUnitByUnit' => $maps[$row['item']->id]['cost'] ?? [],
+            'sellingPricePerUnitByUnit' => $maps[$row['item']->id]['sellingPrice'] ?? [],
+            'packs' => $row['packs']->toArray(),
+        ])->all();
     }
 
     /**
      * Get cost per unit for each unit in the item's family from purchase history,
      * including declared inner units.
      *
-     * @param  \App\Models\Item  $item
      * @return array<string, float|null> unit code => cost per unit
      */
-    private function costPerUnitByUnit(\App\Models\Item $item): array
+    private function costPerUnitByUnit(Item $item): array
     {
         return $this->costCalculator->costPerUnitByUnit($item);
     }
@@ -197,7 +195,7 @@ class RecordFormData extends Service
                 'costPerUnit' => null,
                 // Prefilled so a repeat receipt of the same goods does not have
                 // to be retyped. Optional on submit, so leaving it blank is fine.
-                'packs' => ($declared[$item->id] ?? \App\Support\Packs::none())->toArray(),
+                'packs' => ($declared[$item->id] ?? Packs::none())->toArray(),
             ])
             ->all();
     }
@@ -240,8 +238,6 @@ class RecordFormData extends Service
      * snapshot, never off a live average, so a sale recorded last month still
      * shows what it made last month.
      *
-     * @param  int  $limit
-     * @param  int  $offset
      * @return array<int, array<string, mixed>>
      */
     private function recentLines(RecordType $type, int $limit, int $offset): array
@@ -275,9 +271,6 @@ class RecordFormData extends Service
     /**
      * Filtered recent transactions for the buy page.
      *
-     * @param  ?string  $search
-     * @param  ?\Carbon\CarbonImmutable  $dateFrom
-     * @param  ?\Carbon\CarbonImmutable  $dateTo
      * @return array<int, array<string, mixed>>
      */
     private function recentLinesFiltered(
@@ -285,8 +278,8 @@ class RecordFormData extends Service
         int $limit,
         int $offset,
         ?string $search,
-        ?\Carbon\CarbonImmutable $dateFrom,
-        ?\Carbon\CarbonImmutable $dateTo
+        ?CarbonImmutable $dateFrom,
+        ?CarbonImmutable $dateTo
     ): array {
         return $this->activity->recentGroupedFiltered(
             $type, $limit, $offset,
