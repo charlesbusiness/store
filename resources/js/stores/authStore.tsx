@@ -25,11 +25,11 @@ export const useAuthStore = create<AuthState>()(
             login: async (email: string, password: string) => {
                 const response = await api.post('/auth/login', { email, password });
 
-                if (!response.data?.user || !response.data?.token) {
-                    throw new Error(response.data?.message || 'Login failed');
+                if (!response.user || !response.token) {
+                    throw new Error(response.message || 'Login failed');
                 }
 
-                set({ user: response.data.user, token: response.data.token });
+                set({ user: response.user, token: response.token });
             },
             logout: async () => {
                 try {
@@ -42,11 +42,12 @@ export const useAuthStore = create<AuthState>()(
                 try {
                     const response = await api.get('/auth/user');
 
-                    if (!response.data) {
+                    const user = response.user;
+
+                    if (!user) {
                         throw new Error('Unauthorized');
                     }
 
-                    const user = response.data;
                     set({ user });
                     return user;
                 } catch {
