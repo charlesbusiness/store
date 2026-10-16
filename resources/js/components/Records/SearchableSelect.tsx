@@ -141,17 +141,21 @@ export function SearchableSelect({
         }
     };
 
-    const displayValue = initialOptions.find((opt) => opt.value === value)?.label || value;
+    const displayValue = initialOptions.find((opt) => opt.value === value)?.label ?? value;
+    const inputValue = isOpen ? searchQuery : displayValue;
 
     return (
         <div className={`relative ${className}`}>
             <input
                 ref={inputRef}
                 type="text"
-                value={searchQuery || displayValue}
+                value={inputValue}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
-                onFocus={() => setIsOpen(true)}
+                onFocus={() => {
+                    setIsOpen(true);
+                    setSearchQuery('');
+                }}
                 onBlur={handleBlur}
                 placeholder={placeholder}
                 disabled={disabled}
