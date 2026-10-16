@@ -26,8 +26,11 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
  * @property bool $is_active
  * @property-read Unit|null $displayUnit
  */
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
 class Item extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'name', 'name_key', 'family', 'default_unit_code', 'pack_size', 'notes', 'is_active',
     ];
@@ -46,9 +49,28 @@ class Item extends Model
         return $this->belongsTo(Unit::class, 'default_unit_code', 'code');
     }
 
+    /** Alias for displayUnit for API compatibility. */
+    public function unit(): BelongsTo
+    {
+        return $this->displayUnit();
+    }
+
+    /** Get the family label for the item. */
+    public function getFamilyLabelAttribute(): string
+    {
+        return $this->family?->label();
+    }
+
     public function lines(): HasMany
     {
         return $this->hasMany(TransactionLine::class);
+    }
+
+    public function packs(): HasMany
+    {
+        return $this->hasMany(TransactionLine::class)
+            ->whereNotNull('inner_units')
+            ->distinct('inner_units');
     }
 
     public function transactions(): HasManyThrough

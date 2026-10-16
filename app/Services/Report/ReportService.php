@@ -155,4 +155,11 @@ class ReportService extends Service
 
         return $rows;
     }
+
+    public function trend(PeriodMode $mode, CarbonImmutable $anchor): array
+    {
+        $buckets = $this->buckets->buckets($mode, $anchor);
+        $lines = $this->windowLines($mode, $anchor);
+        return $this->trend->build($buckets, $lines, $mode);
+    }
 }

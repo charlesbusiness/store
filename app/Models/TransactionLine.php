@@ -59,6 +59,11 @@ class TransactionLine extends Model
         return $this->cost === null ? null : $this->total - $this->cost;
     }
 
+    public function getProfitAttribute(): ?float
+    {
+        return $this->profit();
+    }
+
     public function transaction(): BelongsTo
     {
         return $this->belongsTo(Transaction::class);

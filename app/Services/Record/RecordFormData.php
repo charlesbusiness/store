@@ -38,6 +38,31 @@ class RecordFormData extends Service
     ) {}
 
     /**
+     * Just the fields the line-item builder needs, without the recent ledger.
+     *
+     * The API buy form fetches exactly this, so it receives the same config the
+     * server-rendered view is handed via window.RecordForm -- one shape, two
+     * front ends, no drift.
+     *
+     * @return array<string, mixed>
+     */
+    public function formConfig(RecordType $type): array
+    {
+        return [
+            'type' => $type->value,
+            'isSale' => $type === RecordType::Sale,
+            'today' => today()->toDateString(),
+            'items' => $type === RecordType::Sale ? $this->sellableItems() : $this->purchaseItems(),
+            // A list, not a keyed map: the browser iterates it to build the
+            // measurement picker, and an object has nothing to iterate.
+            'families' => UnitFamily::choices(),
+            'units' => $this->unitCatalogue(),
+            'currency' => config('stockly.currency'),
+            'moneyDecimals' => (int) config('stockly.money_decimals', 2),
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function build(RecordType $type, int $page = 1, array $filters = []): array
@@ -64,22 +89,10 @@ class RecordFormData extends Service
             $total = $this->activity->transactionsOf($type);
         }
 
-        $limit = (int) config('stockly.recent_limit', 8);
-        $page = max(1, $page);
-        $offset = ($page - 1) * $limit;
         $totalPages = (int) ceil($total / $limit);
 
         return [
-            'type' => $type->value,
-            'isSale' => $type === RecordType::Sale,
-            'today' => today()->toDateString(),
-            'items' => $type === RecordType::Sale ? $this->sellableItems() : $this->purchaseItems(),
-            // A list, not a keyed map: the browser iterates it to build the
-            // measurement picker, and an object has nothing to iterate.
-            'families' => UnitFamily::choices(),
-            'units' => $this->unitCatalogue(),
-            'currency' => config('stockly.currency'),
-            'moneyDecimals' => (int) config('stockly.money_decimals', 2),
+            ...$this->formConfig($type),
             'recent' => $hasFilters
                 ? $this->recentLinesFiltered($type, $limit, $offset, $search, $dateFrom, $dateTo)
                 : $this->recentLines($type, $limit, $offset),

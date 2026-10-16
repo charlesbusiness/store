@@ -21,8 +21,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property bool $is_default
  * @property bool $is_active
  */
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
 class Unit extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'code', 'label', 'symbol', 'plural', 'family',
         'base_multiplier', 'is_fraction', 'is_decimal', 'is_default', 'is_active', 'sort',

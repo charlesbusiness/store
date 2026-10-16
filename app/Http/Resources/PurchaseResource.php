@@ -1,0 +1,35 @@
+<?php
+
+namespace App\Http\Resources;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class PurchaseResource extends JsonResource
+{
+    public function toArray($request): array
+    {
+        return [
+            'id' => $this->id,
+            'transacted_on' => $this->transacted_on?->toDateString(),
+            'total' => (float) $this->total,
+            'lines' => $this->whenLoaded('lines', fn () => $this->lines->map(fn ($line) => [
+                'id' => $line->id,
+                'item_id' => $line->item_id,
+                'item_name' => $line->item?->name,
+                'qty' => (float) $line->qty,
+                'quantity' => $line->unit?->quantityLabel($line->qty) ?? (string) $line->qty,
+                'unit_code' => $line->unit_code,
+                'unit_label' => $line->unit?->label,
+                'base_qty' => (float) $line->base_qty,
+                'unit_price' => (float) $line->unit_price,
+                'total' => (float) $line->total,
+                'unit_cost' => $line->unit_cost ? (float) $line->unit_cost : null,
+                'selling_price' => $line->selling_price ? (float) $line->selling_price : null,
+                'inner_units' => $line->inner_units ?? [],
+            ])),
+            'created_at' => $this->created_at?->toISOString(),
+            'updated_at' => $this->updated_at?->toISOString(),
+        ];
+    }
+}

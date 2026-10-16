@@ -8,6 +8,7 @@ use App\Models\Transaction;
 use App\Support\Service;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -95,6 +96,48 @@ class ActivityReader extends Service
             ->offset($offset)
             ->limit($limit)
             ->get();
+    }
+
+    /**
+     * A page of transactions matching the buy-page filters, newest first.
+     *
+     * The API list page uses this so it searches and paginates by exactly the
+     * rules the server-rendered recent table does: an item-name substring and an
+     * inclusive date window, both optional and both lenient about junk input.
+     *
+     * @return LengthAwarePaginator<int, Transaction>
+     */
+    public function paginateFiltered(
+        RecordType $type,
+        ?string $search = null,
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        int $perPage = 20,
+    ): LengthAwarePaginator {
+        return $this->applyFilters(
+            Transaction::query()->where('type', $type->value),
+            $search !== null && $search !== '' ? $search : null,
+            $this->parseDate($dateFrom),
+            $this->parseDate($dateTo),
+        )
+            ->with(['lines.item', 'lines.unit'])
+            ->orderByDesc('transacted_on')
+            ->orderByDesc('id')
+            ->paginate($perPage);
+    }
+
+    /** Parse a Y-m-d string into a date, or null when it is empty or invalid. */
+    private function parseDate(?string $date): ?CarbonImmutable
+    {
+        if ($date === null || $date === '') {
+            return null;
+        }
+
+        try {
+            return CarbonImmutable::createFromFormat('Y-m-d', $date)->startOfDay();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
