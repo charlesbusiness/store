@@ -33,11 +33,16 @@ class ActivityReader extends Service
         RecordType $type,
         ?string $search = null,
         ?CarbonImmutable $dateFrom = null,
-        ?CarbonImmutable $dateTo = null
+        ?CarbonImmutable $dateTo = null,
+        ?bool $paid = null
     ): int {
         return $this->applyFilters(
-            Transaction::query()->where('type', $type->value),
-            $search, $dateFrom, $dateTo
+            Transaction::query(),
+            $type,
+            $search,
+            $dateFrom,
+            $dateTo,
+            $paid
         )->count();
     }
 
@@ -81,14 +86,19 @@ class ActivityReader extends Service
         int $offset = 0,
         ?string $search = null,
         ?CarbonImmutable $dateFrom = null,
-        ?CarbonImmutable $dateTo = null
+        ?CarbonImmutable $dateTo = null,
+        ?bool $paid = null
     ): EloquentCollection
     {
         $limit ??= (int) config('stockly.recent_limit', 8);
 
         return $this->applyFilters(
-            Transaction::query()->where('type', $type->value),
-            $search, $dateFrom, $dateTo
+            Transaction::query(),
+            $type,
+            $search,
+            $dateFrom,
+            $dateTo,
+            $paid
         )
             ->with(['lines.item.displayUnit', 'lines.unit'])
             ->orderByDesc('transacted_on')
@@ -113,12 +123,15 @@ class ActivityReader extends Service
         ?string $dateFrom = null,
         ?string $dateTo = null,
         int $perPage = 20,
+        ?bool $paid = null,
     ): LengthAwarePaginator {
         return $this->applyFilters(
-            Transaction::query()->where('type', $type->value),
+            Transaction::query(),
+            $type,
             $search !== null && $search !== '' ? $search : null,
             $this->parseDate($dateFrom),
             $this->parseDate($dateTo),
+            $paid,
         )
             ->with(['lines.item', 'lines.unit'])
             ->orderByDesc('transacted_on')
@@ -145,10 +158,14 @@ class ActivityReader extends Service
      */
     private function applyFilters(
         $query,
-        ?string $search,
-        ?CarbonImmutable $dateFrom,
-        ?CarbonImmutable $dateTo
+        RecordType $type,
+        ?string $search = null,
+        ?CarbonImmutable $dateFrom = null,
+        ?CarbonImmutable $dateTo = null,
+        ?bool $paid = null
     ) {
+        $query->where('type', $type->value);
+
         if ($search !== null && $search !== '') {
             $query->whereHas('lines.item', function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%");
@@ -161,6 +178,10 @@ class ActivityReader extends Service
 
         if ($dateTo !== null) {
             $query->whereDate('transacted_on', '<=', $dateTo->toDateString());
+        }
+
+        if ($type === RecordType::Sale && $paid !== null) {
+            $query->where('paid', $paid);
         }
 
         return $query;

@@ -99,9 +99,11 @@ export default function SaleList() {
   const search = searchParams.get('search') ?? '';
   const dateFrom = searchParams.get('date_from') ?? '';
   const dateTo = searchParams.get('date_to') ?? '';
-  const hasFilters = search !== '' || dateFrom !== '' || dateTo !== '';
+  const statusParam = searchParams.get('status') ?? 'all';
+  const status = ['all', 'pending', 'paid'].includes(statusParam) ? statusParam : 'all';
+  const hasFilters = search !== '' || dateFrom !== '' || dateTo !== '' || status !== 'all';
 
-  const [filterForm, setFilterForm] = useState({ search, dateFrom, dateTo });
+  const [filterForm, setFilterForm] = useState({ search, dateFrom, dateTo, status });
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [editing, setEditing] = useState<EditState | null>(null);
 
@@ -109,9 +111,10 @@ export default function SaleList() {
   if (search) params.search = search;
   if (dateFrom) params.date_from = dateFrom;
   if (dateTo) params.date_to = dateTo;
+  if (status !== 'all') params.status = status;
 
   const { data: response, isLoading } = useQuery<PaginatedResponse<Sale>>({
-    queryKey: ['sales', page, search, dateFrom, dateTo],
+    queryKey: ['sales', page, search, dateFrom, dateTo, status],
     queryFn: () => api.get('/sales', { params }),
   });
 
@@ -192,11 +195,12 @@ export default function SaleList() {
     if (filterForm.search) next.set('search', filterForm.search);
     if (filterForm.dateFrom) next.set('date_from', filterForm.dateFrom);
     if (filterForm.dateTo) next.set('date_to', filterForm.dateTo);
+    if (filterForm.status !== 'all') next.set('status', filterForm.status);
     setSearchParams(next);
   };
 
   const clearFilters = () => {
-    setFilterForm({ search: '', dateFrom: '', dateTo: '' });
+    setFilterForm({ search: '', dateFrom: '', dateTo: '', status: 'all' });
     setSearchParams(new URLSearchParams());
   };
 
@@ -241,6 +245,18 @@ export default function SaleList() {
             onChange={(event) => setFilterForm({ ...filterForm, dateTo: event.target.value })}
             className={filterInputClass}
           />
+        </label>
+        <label className='flex flex-col text-sm gap-1'>
+          <span>Status</span>
+          <select
+            value={filterForm.status}
+            onChange={(event) => setFilterForm({ ...filterForm, status: event.target.value })}
+            className={filterInputClass}
+          >
+            <option value='all'>All</option>
+            <option value='pending'>Pending</option>
+            <option value='paid'>Paid</option>
+          </select>
         </label>
         <button type='submit' className='btn sm'>Filter</button>
         <button type='button' onClick={clearFilters} className='btn alt sm'>Clear</button>

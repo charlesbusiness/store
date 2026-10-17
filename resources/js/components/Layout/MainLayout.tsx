@@ -8,7 +8,7 @@ export function MainLayout() {
         <div className="w">
             <Header />
             <FlashMessage />
-            <main style={{ maxWidth: '80rem', margin: '0 auto' }}>
+            <main>
                 <Outlet />
             </main>
             <Footer />

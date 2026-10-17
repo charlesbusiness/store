@@ -77,14 +77,42 @@ class RecordFormData extends Service
         $dateFrom = $this->parseDate($filters['date_from'] ?? '');
         $dateTo = $this->parseDate($filters['date_to'] ?? '');
 
-        $hasFilters = $search !== '' || $dateFrom !== null || $dateTo !== null;
+        $paid = null;
+        if ($type === RecordType::Sale) {
+            $status = $filters['status'] ?? $filters['payment_status'] ?? $filters['paid_status'] ?? null;
+            if ($status === null && array_key_exists('paid', $filters)) {
+                $paidVal = $filters['paid'];
+                if ($paidVal === true || $paidVal === 1 || $paidVal === '1' || $paidVal === 'true' || $paidVal === 'paid') {
+                    $status = 'paid';
+                } elseif ($paidVal === false || $paidVal === 0 || $paidVal === '0' || $paidVal === 'false' || $paidVal === 'pending') {
+                    $status = 'pending';
+                } else {
+                    $status = $paidVal;
+                }
+            }
+            if (is_string($status)) {
+                $status = strtolower(trim($status));
+                if ($status === 'paid') {
+                    $paid = true;
+                } elseif ($status === 'pending') {
+                    $paid = false;
+                } elseif ($status === 'all' || $status === '') {
+                    $paid = null;
+                } else {
+                    $paid = null;
+                }
+            }
+        }
+
+        $hasFilters = $search !== '' || $dateFrom !== null || $dateTo !== null || $paid !== null;
 
         if ($hasFilters) {
             $total = $this->activity->transactionsFiltered(
                 $type,
                 $search ?: null,
                 $dateFrom,
-                $dateTo
+                $dateTo,
+                $paid
             );
         } else {
             $total = $this->activity->transactionsOf($type);
@@ -95,7 +123,7 @@ class RecordFormData extends Service
         return [
             ...$this->formConfig($type),
             'recent' => $hasFilters
-                ? $this->recentLinesFiltered($type, $limit, $offset, $search, $dateFrom, $dateTo)
+                ? $this->recentLinesFiltered($type, $limit, $offset, $search, $dateFrom, $dateTo, $paid)
                 : $this->recentLines($type, $limit, $offset),
             'recentTotal' => $total,
             'recentLimit' => $limit,
@@ -105,6 +133,7 @@ class RecordFormData extends Service
             'recentSearch' => $search,
             'recentDateFrom' => $dateFrom?->toDateString() ?? '',
             'recentDateTo' => $dateTo?->toDateString() ?? '',
+            'recentStatus' => $type === RecordType::Sale ? ($paid === true ? 'paid' : ($paid === false ? 'pending' : 'all')) : 'all',
         ];
     }
 
@@ -279,13 +308,15 @@ class RecordFormData extends Service
         int $offset,
         ?string $search,
         ?CarbonImmutable $dateFrom,
-        ?CarbonImmutable $dateTo
+        ?CarbonImmutable $dateTo,
+        ?bool $paid = null
     ): array {
         return $this->activity->recentGroupedFiltered(
             $type, $limit, $offset,
             $search ?: null,
             $dateFrom,
-            $dateTo
+            $dateTo,
+            $paid
         )
             ->map(fn (Transaction $transaction) => [
                 'id' => $transaction->id,

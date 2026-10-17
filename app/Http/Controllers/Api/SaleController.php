@@ -44,11 +44,35 @@ class SaleController extends Controller
 
     public function index(Request $request): AnonymousResourceCollection
     {
+        $status = $request->query('status', $request->query('payment_status'));
+        $paid = null;
+        if (is_string($status)) {
+            $status = strtolower(trim($status));
+            if ($status === 'paid') {
+                $paid = true;
+            } elseif ($status === 'pending') {
+                $paid = false;
+            } elseif ($status === 'all' || $status === '') {
+                $paid = null;
+            }
+        } elseif ($request->has('paid')) {
+            $paidVal = $request->query('paid');
+            if ($paidVal === 'true' || $paidVal === '1') {
+                $paid = true;
+            } elseif ($paidVal === 'false' || $paidVal === '0') {
+                $paid = false;
+            } else {
+                $paid = null;
+            }
+        }
+
         $sales = $this->activity->paginateFiltered(
             RecordType::Sale,
             $request->query('search'),
             $request->query('date_from'),
             $request->query('date_to'),
+            (int) $request->query('per_page', 20),
+            $paid,
         );
 
         return SaleResource::collection($sales);

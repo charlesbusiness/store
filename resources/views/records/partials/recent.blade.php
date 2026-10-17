@@ -21,8 +21,33 @@
     @endif
   </div>
 
-  {{-- Buy page search filters --}}
-  @unless ($form['isSale'])
+  {{-- Search filters --}}
+  @if ($form['isSale'])
+    <form method="GET" class="filter-form" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:end;">
+      <label class="form-field" style="min-width:180px;">
+        <span>Item name</span>
+        <input type="search" name="search" value="{{ $form['recentSearch'] ?? '' }}" placeholder="Search items...">
+      </label>
+      <label class="form-field" style="min-width:140px;">
+        <span>From</span>
+        <input type="date" name="date_from" value="{{ $form['recentDateFrom'] ?? '' }}">
+      </label>
+      <label class="form-field" style="min-width:140px;">
+        <span>To</span>
+        <input type="date" name="date_to" value="{{ $form['recentDateTo'] ?? '' }}">
+      </label>
+      <label class="form-field" style="min-width:140px;">
+        <span>Status</span>
+        <select name="status" style="height:38px; padding:6px 8px; border:1px solid #d1d5db; border-radius:6px;">
+          <option value="all" {{ ($form['recentStatus'] ?? 'all') === 'all' ? 'selected' : '' }}>All</option>
+          <option value="pending" {{ ($form['recentStatus'] ?? 'all') === 'pending' ? 'selected' : '' }}>Pending</option>
+          <option value="paid" {{ ($form['recentStatus'] ?? 'all') === 'paid' ? 'selected' : '' }}>Paid</option>
+        </select>
+      </label>
+      <button type="submit" class="btn sm" style="height:38px;">Filter</button>
+      <a href="{{ route('sales.create') }}" class="btn alt sm" style="height:38px;">Clear</a>
+    </form>
+  @else
     <form method="GET" class="filter-form" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:end;">
       <label class="form-field" style="min-width:180px;">
         <span>Item name</span>
@@ -39,7 +64,7 @@
       <button type="submit" class="btn sm" style="height:38px;">Filter</button>
       <a href="{{ route('purchases.create') }}" class="btn alt sm" style="height:38px;">Clear</a>
     </form>
-  @endunless
+  @endif
 
   @if (count($form['recent']))
     <div class="sc">
@@ -194,12 +219,19 @@
       <div class="pagination" style="display:flex; justify-content:center; gap:8px; margin-top:16px; flex-wrap:wrap;">
         @php
           $baseParams = ['page' => 1];
-          if (!$form['isSale']) {
-            $baseParams = array_merge($baseParams, [
+          if ($form['isSale']) {
+            $baseParams = array_merge($baseParams, array_filter([
               'search' => $form['recentSearch'] ?? '',
               'date_from' => $form['recentDateFrom'] ?? '',
               'date_to' => $form['recentDateTo'] ?? '',
-            ]);
+              'status' => isset($form['recentStatus']) && $form['recentStatus'] !== 'all' ? $form['recentStatus'] : null,
+            ]));
+          } else {
+            $baseParams = array_merge($baseParams, array_filter([
+              'search' => $form['recentSearch'] ?? '',
+              'date_from' => $form['recentDateFrom'] ?? '',
+              'date_to' => $form['recentDateTo'] ?? '',
+            ]));
           }
         @endphp
         @if ($form['recentPage'] > 1)
