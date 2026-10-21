@@ -1,7 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '@/lib/api';
+
+type Mode = 'd' | 'w' | 'm';
+
+const MODES: Mode[] = ['d', 'w', 'm'];
+
+const MODE_LABELS: Record<Mode, string> = {
+    d: 'Daily',
+    w: 'Weekly',
+    m: 'Monthly',
+};
 
 interface TrendBucket {
     key: string;
@@ -17,10 +27,21 @@ interface ItemRow {
     base_qty: number;
     display_qty: number;
     total: number;
+    cost: number | null;
+    profit: number | null;
+}
+
+interface ProfitSummary {
+    revenue: number;
+    costOfGoods: number;
+    profit: number | null;
+    knownProfit: number;
+    unknownLines: number;
+    margin: number | null;
 }
 
 interface ReportSummary {
-    mode: 'd' | 'w' | 'm';
+    mode: Mode;
     anchor: string;
     periodLabel: string;
     sales: number;
@@ -30,44 +51,72 @@ interface ReportSummary {
     trendMax: number;
     itemsSold: ItemRow[];
     itemsBought: ItemRow[];
+    profit: ProfitSummary;
 }
 
-export default function Reports() {
-    const navigate = useNavigate();
-    const [mode, setMode] = useState<'d' | 'w' | 'm'>('d');
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
+/** Today in the local calendar, which is the day a report with no range means. */
+const today = () => {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${now.getFullYear()}-${month}-${day}`;
+};
 
-    const hasCustomRange = startDate || endDate;
-    const anchor = hasCustomRange ? undefined : new Date().toISOString().split('T')[0];
+export default function Reports() {
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    // The range lives in the URL, so a reload keeps it and a link can carry it.
+    const modeParam = searchParams.get('mode');
+    const mode: Mode = MODES.includes(modeParam as Mode) ? (modeParam as Mode) : 'd';
+    const startDate = searchParams.get('start_date') ?? '';
+    const endDate = searchParams.get('end_date') ?? '';
+
+    // The inputs are edited locally so a half-typed date never reaches the
+    // server, and are pulled back from the URL when the range changes.
+    const [range, setRange] = useState({ startDate, endDate });
+
+    useEffect(() => {
+        setRange({ startDate, endDate });
+    }, [startDate, endDate]);
+
+    const anchor = today();
 
     const params = new URLSearchParams();
     params.set('mode', mode);
     if (startDate) params.set('start_date', startDate);
     if (endDate) params.set('end_date', endDate);
-    if (anchor) params.set('anchor', anchor);
+    if (!startDate && !endDate) params.set('anchor', anchor);
 
     const { data: report, isLoading } = useQuery<{ data: ReportSummary }>({
-        queryKey: ['report', mode, startDate, endDate],
+        queryKey: ['report', mode, startDate, endDate, anchor],
         queryFn: () => api.get('/reports', { params }),
     });
 
     const summary = report?.data;
 
+    const applyRange = (
+        next: { mode: Mode; startDate: string; endDate: string },
+        options?: { replace?: boolean },
+    ) => {
+        const nextParams = new URLSearchParams();
+        nextParams.set('mode', next.mode);
+        if (next.startDate) nextParams.set('start_date', next.startDate);
+        if (next.endDate) nextParams.set('end_date', next.endDate);
+
+        setSearchParams(nextParams, options);
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const params = new URLSearchParams();
-        params.set('mode', mode);
-        if (startDate) params.set('start_date', startDate);
-        if (endDate) params.set('end_date', endDate);
-        if (!startDate && !endDate) {
-            params.set('anchor', new Date().toISOString().split('T')[0]);
-        }
-        navigate(`/reports?${params.toString()}`);
+        applyRange({ mode, ...range });
     };
 
     const formatMoney = (value: number) => {
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'NGN' }).format(value);
+    };
+
+    const formatPercent = (ratio: number) => {
+        return new Intl.NumberFormat('en-US', { style: 'percent', maximumFractionDigits: 1 }).format(ratio);
     };
 
     const formatQty = (qty: number, unit: { code: string; label: string } | null) => {
@@ -77,6 +126,10 @@ export default function Reports() {
 
     const difference = summary ? summary.sales - summary.purchases : 0;
     const isDeficit = difference < 0;
+
+    const profit = summary?.profit;
+    const isPartial = !!profit && profit.unknownLines > 0;
+    const profitValue = profit ? (profit.profit ?? profit.knownProfit) : null;
 
     const trendBuckets = summary?.trend || [];
     const trendMax = summary?.trendMax || 1;
@@ -91,14 +144,14 @@ export default function Reports() {
             <form className="seg mb-6" onSubmit={handleSubmit}>
                 <div className="flex flex-wrap items-center gap-4">
                     <div className="sg flex gap-2">
-                        {(['d', 'w', 'm'] as const).map((m) => (
+                        {MODES.map((m) => (
                             <label key={m} className="inline-flex items-center gap-1 cursor-pointer">
                                 <input
                                     type="radio"
                                     name="mode"
                                     value={m}
                                     checked={mode === m}
-                                    onChange={() => setMode(m)}
+                                    onChange={() => applyRange({ mode: m, ...range }, { replace: true })}
                                     className="sr-only"
                                 />
                                 <span className={`px-3 py-2 rounded text-sm font-semibold transition-colors border-2 ${
@@ -106,7 +159,7 @@ export default function Reports() {
                                         ? 'bg-blue-600 text-white border-blue-600'
                                         : 'bg-white text-gray-900 border-gray-300 hover:bg-gray-50'
                                 }`}>
-                                    {m === 'd' ? 'Daily' : m === 'w' ? 'Weekly' : 'Monthly'}
+                                    {MODE_LABELS[m]}
                                 </span>
                             </label>
                         ))}
@@ -115,8 +168,8 @@ export default function Reports() {
                     <label className="flex items-center gap-1">
                         <input
                             type="date"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
+                            value={range.startDate}
+                            onChange={(e) => setRange({ ...range, startDate: e.target.value })}
                             className="input w-40"
                             placeholder="Start"
                             aria-label="Period start date"
@@ -125,8 +178,8 @@ export default function Reports() {
                     <label className="flex items-center gap-1">
                         <input
                             type="date"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
+                            value={range.endDate}
+                            onChange={(e) => setRange({ ...range, endDate: e.target.value })}
                             className="input w-40"
                             placeholder="End"
                             aria-label="Period end date"
@@ -143,7 +196,7 @@ export default function Reports() {
                 <div className="text-center py-12">Loading...</div>
             ) : summary && (
                 <>
-                    <div className="kp grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div className="kp grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
                         <div className="card p-4">
                             <small className="block text-gray-600 mb-1">Sales</small>
                             <strong className="text-2xl">{formatMoney(summary.sales)}</strong>
@@ -151,6 +204,29 @@ export default function Reports() {
                         <div className="card p-4">
                             <small className="block text-gray-600 mb-1">Purchases</small>
                             <strong className="text-2xl">{formatMoney(summary.purchases)}</strong>
+                        </div>
+                        <div className="card p-4">
+                            <small className="block text-gray-600 mb-1">Profit</small>
+                            <strong className={`text-2xl ${
+                                profitValue === null
+                                    ? 'text-gray-400'
+                                    : profitValue < 0 ? 'text-red-600' : 'text-green-600'
+                            }`}>
+                                {profitValue === null ? '—' : formatMoney(profitValue)}
+                            </strong>
+                            {profit && (isPartial ? (
+                                <small className="flex items-center gap-2 text-gray-500 mt-1">
+                                    <span className="tag mute">partial</span>
+                                    {profit.unknownLines} sale line{profit.unknownLines === 1 ? '' : 's'} had no
+                                    cost recorded
+                                </small>
+                            ) : (
+                                <small className="block text-gray-500 mt-1">
+                                    {profit.revenue > 0
+                                        ? `${formatPercent(profit.margin ?? 0)} margin · goods cost ${formatMoney(profit.costOfGoods)}`
+                                        : 'No sales in this period'}
+                                </small>
+                            ))}
                         </div>
                         <div className="card p-4">
                             <small className="block text-gray-600 mb-1">Sales − Purchases</small>
@@ -215,6 +291,7 @@ export default function Reports() {
                                                 <th className="text-left p-3">Item</th>
                                                 <th className="text-right p-3">Quantity</th>
                                                 <th className="text-right p-3">Amount</th>
+                                                <th className="text-right p-3">Profit</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -223,6 +300,15 @@ export default function Reports() {
                                                     <td className="p-3">{row.item.name}</td>
                                                     <td className="text-right p-3">{formatQty(row.display_qty, row.unit)}</td>
                                                     <td className="text-right p-3">{formatMoney(row.total)}</td>
+                                                    <td className="text-right p-3">
+                                                        {row.profit === null ? (
+                                                            <span className="text-gray-400" title="No cost was recorded for this sale">—</span>
+                                                        ) : (
+                                                            <span className={row.profit < 0 ? 'text-red-600' : 'text-green-600'}>
+                                                                {formatMoney(row.profit)}
+                                                            </span>
+                                                        )}
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>

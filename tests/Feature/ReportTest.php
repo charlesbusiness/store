@@ -6,7 +6,6 @@ use App\Enums\PeriodMode;
 use App\Services\Report\BucketResolver;
 use App\Services\Report\ReportService;
 use App\Services\Report\ReportSummary;
-use App\Support\ValueFormatter;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -195,31 +194,143 @@ class ReportTest extends TestCase
         $this->assertFalse($summary->hasActivity());
         $this->assertCount(7, $summary->trend);
         $this->assertSame([], $summary->itemsSold);
+
+        // Nothing sold, so nothing made and no margin to speak of.
+        $this->assertSame(0.0, $summary->profit->profit);
+        $this->assertTrue($summary->profit->isComplete());
+        $this->assertNull($summary->profit->margin);
     }
 
-    // ------------------------------------------------------------------- the page
-
-    public function test_the_report_page_renders_every_grain_and_recovers_from_bad_input(): void
+    public function test_profit_is_what_the_goods_sold_made(): void
     {
         $item = $this->item('Rice', 'count', 'bag');
-        $this->recordLine($item, 'sale', 1, 'bag', 1234.5, self::ANCHOR);
+
+        // A purchase is stock on the shelf, not money made, so it never counts
+        // towards the profit.
+        $this->recordLine($item, 'purchase', 10, 'bag', 25000, self::ANCHOR);
+        // 2 bags at 9,000, sold out of stock that had cost 5,000.
+        $this->recordLine($item, 'sale', 2, 'bag', 9000, self::ANCHOR, 5000);
+
+        $profit = $this->report(PeriodMode::Daily)->profit;
+
+        $this->assertSame(18000.0, $profit->revenue);
+        $this->assertSame(5000.0, $profit->costOfGoods);
+        $this->assertSame(13000.0, $profit->profit);
+        $this->assertSame(13000.0, $profit->knownProfit);
+        $this->assertSame(0, $profit->unknownLines);
+        $this->assertTrue($profit->isComplete());
+        // 13,000 of 18,000.
+        $this->assertSame(0.7222, $profit->margin);
+    }
+
+    public function test_profit_is_unknown_when_a_sale_never_recorded_its_cost(): void
+    {
+        $item = $this->item('Rice', 'count', 'bag');
+
+        // Recorded before costs were snapshotted, so its profit is unknown.
+        $this->recordLine($item, 'sale', 1, 'bag', 9000, self::ANCHOR);
+        $this->recordLine($item, 'sale', 1, 'bag', 5000, self::ANCHOR, 3000);
+
+        $profit = $this->report(PeriodMode::Daily)->profit;
+
+        // A partial total that looked complete would be worse than no figure.
+        $this->assertNull($profit->profit);
+        $this->assertNull($profit->margin);
+        $this->assertSame(1, $profit->unknownLines);
+        $this->assertFalse($profit->isComplete());
+        // The part that is known: 5,000 sold for a cost of 3,000.
+        $this->assertSame(2000.0, $profit->knownProfit);
+        $this->assertSame(3000.0, $profit->costOfGoods);
+    }
+
+    public function test_profit_covers_only_the_lines_of_its_own_period(): void
+    {
+        $item = $this->item('Rice', 'count', 'bag');
+
+        $this->recordLine($item, 'sale', 1, 'bag', 9000, self::ANCHOR, 5000);
+        // The day before, so outside the daily bucket.
+        $this->recordLine($item, 'sale', 1, 'bag', 4000, '2026-10-06', 2000);
+
+        $profit = $this->report(PeriodMode::Daily)->profit;
+
+        $this->assertSame(9000.0, $profit->revenue);
+        $this->assertSame(5000.0, $profit->costOfGoods);
+        $this->assertSame(4000.0, $profit->profit);
+    }
+
+    public function test_profit_follows_the_selected_date_range(): void
+    {
+        $item = $this->item('Rice', 'count', 'bag');
+
+        $this->recordLine($item, 'sale', 1, 'bag', 9000, '2026-10-01', 5000);
+        $this->recordLine($item, 'sale', 1, 'bag', 7000, '2026-10-05', 4000);
+        // Outside the range.
+        $this->recordLine($item, 'sale', 1, 'bag', 3000, '2026-10-20', 1000);
+
+        $range = [
+            CarbonImmutable::createFromFormat('Y-m-d', '2026-10-01')->startOfDay(),
+            CarbonImmutable::createFromFormat('Y-m-d', '2026-10-05')->endOfDay(),
+        ];
+
+        $summary = app(ReportService::class)->summary(PeriodMode::Daily, $range[1], $range);
+
+        $this->assertSame(16000.0, $summary->sales);
+        $this->assertSame(9000.0, $summary->profit->costOfGoods);
+        $this->assertSame(7000.0, $summary->profit->profit);
+    }
+
+    public function test_the_items_table_carries_what_each_item_made(): void
+    {
+        $rice = $this->item('Rice', 'count', 'bag');
+        $sugar = $this->item('Sugar', 'weight', 'kg');
+
+        $this->recordLine($rice, 'sale', 2, 'bag', 9000, self::ANCHOR, 5000);
+        $this->recordLine($sugar, 'sale', 5, 'kg', 7000, self::ANCHOR);
+        $this->recordLine($rice, 'purchase', 10, 'bag', 25000, self::ANCHOR);
+
+        $sold = collect($this->report(PeriodMode::Daily)->itemsSold);
+
+        $rice = $sold->firstWhere('item.name', 'Rice');
+        $this->assertSame(18000.0, (float) $rice['total']);
+        $this->assertSame(5000.0, (float) $rice['cost']);
+        $this->assertSame(13000.0, (float) $rice['profit']);
+
+        // Sugar was sold before costs were snapshotted, so it has no profit.
+        $sugar = $sold->firstWhere('item.name', 'Sugar');
+        $this->assertNull($sugar['cost']);
+        $this->assertNull($sugar['profit']);
+
+        // A purchase is not a profit, so it carries neither figure.
+        $bought = collect($this->report(PeriodMode::Daily)->itemsBought)->firstWhere('item.name', 'Rice');
+        $this->assertNull($bought['cost']);
+        $this->assertNull($bought['profit']);
+    }
+
+    // ------------------------------------------------------------------- the API
+
+    public function test_the_report_api_returns_the_profit_for_the_selected_range(): void
+    {
+        $item = $this->item('Rice', 'count', 'bag');
+        $this->recordLine($item, 'sale', 2, 'bag', 9000, self::ANCHOR, 5000);
 
         $this->actingAs($this->user());
 
-        foreach (['d', 'w', 'm'] as $mode) {
-            $this->get(route('reports.index', ['mode' => $mode, 'anchor' => self::ANCHOR]))
-                ->assertOk()
-                ->assertSee(ValueFormatter::money(1234.5), false);
-        }
+        $this->getJson('/api/reports?mode=d&anchor='.self::ANCHOR)
+            ->assertOk()
+            ->assertJsonPath('data.sales', 18000)
+            ->assertJsonPath('data.profit.revenue', 18000)
+            ->assertJsonPath('data.profit.costOfGoods', 5000)
+            ->assertJsonPath('data.profit.profit', 13000)
+            ->assertJsonPath('data.profit.unknownLines', 0);
 
-        $this->get(route('reports.index'))->assertOk();
+        // The same figures for a range that covers the sale.
+        $this->getJson('/api/reports?mode=d&start_date=2026-10-01&end_date=2026-10-07')
+            ->assertOk()
+            ->assertJsonPath('data.profit.profit', 13000);
 
-        // An unknown grain falls back to daily, and an unreadable anchor to today.
-        // Neither is worth an error: the page is a link target.
-        foreach ([['fortnightly', '2026-10-07'], ['d', 'not-a-date']] as [$mode, $anchor]) {
-            $this->get(route('reports.index', ['mode' => $mode, 'anchor' => $anchor]))
-                ->assertOk()
-                ->assertSee(PeriodMode::Daily->label(), false);
-        }
+        // A range that misses it reports no sales, and so no profit.
+        $this->getJson('/api/reports?mode=d&start_date=2026-09-01&end_date=2026-09-07')
+            ->assertOk()
+            ->assertJsonPath('data.profit.profit', 0);
     }
 }

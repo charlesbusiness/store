@@ -28,6 +28,7 @@ class ReportService extends Service
         private readonly BucketResolver $buckets,
         private readonly TrendSeriesBuilder $trend,
         private readonly StockLedger $ledger,
+        private readonly ProfitCalculator $profit,
     ) {}
 
     /**
@@ -66,6 +67,7 @@ class ReportService extends Service
             trendMax: $this->trend->peak($series),
             itemsSold: $this->itemTotals($inPeriod, RecordType::Sale),
             itemsBought: $this->itemTotals($inPeriod, RecordType::Purchase),
+            profit: $this->profit->forLines($inPeriod),
         );
     }
 
@@ -129,16 +131,39 @@ class ReportService extends Service
      * Quantities are summed in base units then restated in each item's own
      * trading unit, so "3.5 bags" reads the same way it did before.
      *
-     * @return array<int, array{item: Item, unit: Unit|null, base_qty: float, display_qty: float, total: float}>
+     * A sale also carries the cost it was sold at, and what it made: the same
+     * frozen snapshot the period profit is built from, so an item's row and the
+     * headline always tell the same story. A purchase is not a profit and
+     * carries neither figure.
+     *
+     * @return array<int, array{item: Item, unit: Unit|null, base_qty: float, display_qty: float, total: float, cost: ?float, profit: ?float}>
      */
     private function itemTotals(Collection $lines, RecordType $type): array
     {
         $grouped = [];
 
         foreach ($lines->filter(fn (TransactionLine $line) => $line->transaction->type === $type) as $line) {
-            $grouped[$line->item_id] ??= ['item' => $line->item, 'base_qty' => 0.0, 'total' => 0.0];
+            $grouped[$line->item_id] ??= [
+                'item' => $line->item,
+                'base_qty' => 0.0,
+                'total' => 0.0,
+                'cost' => 0.0,
+                'unknown_cost' => 0,
+            ];
             $grouped[$line->item_id]['base_qty'] += (float) $line->base_qty;
             $grouped[$line->item_id]['total'] += (float) $line->total;
+
+            if ($type !== RecordType::Sale) {
+                continue;
+            }
+
+            if ($line->cost === null) {
+                $grouped[$line->item_id]['unknown_cost']++;
+
+                continue;
+            }
+
+            $grouped[$line->item_id]['cost'] += (float) $line->cost;
         }
 
         $rows = [];
@@ -148,6 +173,16 @@ class ReportService extends Service
             $row['unit'] = $unit;
             $row['total'] = round($row['total'], 2);
             $row['display_qty'] = $unit ? $row['base_qty'] / $unit->base_multiplier : $row['base_qty'];
+
+            // A sale line whose cost was never recorded has an unknown profit,
+            // and the unknown travels up to the item, the same way it travels
+            // up to the period.
+            $known = $type === RecordType::Sale && $row['unknown_cost'] === 0;
+            $row['cost'] = $known ? round($row['cost'], 2) : null;
+            $row['profit'] = $known ? round($row['total'] - $row['cost'], 2) : null;
+
+            unset($row['unknown_cost']);
+
             $rows[] = $row;
         }
 

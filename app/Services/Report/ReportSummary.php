@@ -18,8 +18,8 @@ final readonly class ReportSummary
 {
     /**
      * @param  array<int, array{key: string, label: string, start: CarbonImmutable, sales: float, purchases: float}>  $trend
-     * @param  array<int, array{item: Item, unit: Unit, base_qty: float, display_qty: float, total: float}>  $itemsSold
-     * @param  array<int, array{item: Item, unit: Unit, base_qty: float, display_qty: float, total: float}>  $itemsBought
+     * @param  array<int, array{item: Item, unit: Unit, base_qty: float, display_qty: float, total: float, cost: ?float, profit: ?float}>  $itemsSold
+     * @param  array<int, array{item: Item, unit: Unit, base_qty: float, display_qty: float, total: float, cost: ?float, profit: ?float}>  $itemsBought
      * @param  float  $trendMax  the largest bar on the chart, never below 1
      */
     public function __construct(
@@ -33,6 +33,7 @@ final readonly class ReportSummary
         public float $trendMax,
         public array $itemsSold,
         public array $itemsBought,
+        public ProfitSummary $profit,
     ) {}
 
     /** Sales minus purchases, negative when the period spent more than it earned. */
