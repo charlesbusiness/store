@@ -131,7 +131,7 @@ function toNumberOrNull(value: string): number | null {
  * calls during render; mutating methods notify subscribers so React re-reads.
  */
 export class RecordFormModel {
-    readonly config: RecordConfig;
+    private _config: RecordConfig;
 
     date: string;
     itemId = '';
@@ -149,8 +149,21 @@ export class RecordFormModel {
     private listeners = new Set<() => void>();
 
     constructor(config: RecordConfig) {
-        this.config = config;
+        this._config = config;
         this.date = config.today;
+    }
+
+    get config(): RecordConfig {
+        return this._config;
+    }
+
+    /**
+     * Swaps in a freshly loaded config without discarding staged lines, so a
+     * background refetch cannot wipe a half-filled form.
+     */
+    updateConfig(config: RecordConfig): void {
+        this._config = config;
+        this.notify();
     }
 
     subscribe(listener: () => void): () => void {

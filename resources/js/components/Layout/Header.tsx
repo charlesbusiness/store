@@ -3,9 +3,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useTheme } from '@/hooks/useTheme';
 
 const navTabs = [
-    // { path: '/sell', label: 'Sell' },
     { path: '/sales', label: 'Sales' },
-    // { path: '/buy', label: 'Buy' },
     { path: '/purchases', label: 'Purchases' },
     { path: '/stock', label: 'Stock' },
 ];

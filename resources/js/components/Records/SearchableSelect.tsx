@@ -168,7 +168,7 @@ export function SearchableSelect({
                 aria-controls="dropdown"
             />
             <div
-                className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"
+                className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--mut)]"
                 aria-hidden="true"
             >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -180,15 +180,15 @@ export function SearchableSelect({
                 <div
                     ref={dropdownRef}
                     id="dropdown"
-                    className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
+                    className="absolute z-50 w-full mt-1 bg-[var(--card)] text-[var(--ink)] border border-[var(--line)] rounded-md shadow-lg max-h-60 overflow-auto"
                 >
                     {isLoading && (
-                        <div className="p-3 text-center text-gray-500 text-sm">
+                        <div className="p-3 text-center text-[var(--mut)] text-sm">
                             Searching...
                         </div>
                     )}
                     {filteredOptions.length === 0 && !isLoading && (
-                        <div className="p-3 text-center text-gray-500 text-sm">
+                        <div className="p-3 text-center text-[var(--mut)] text-sm">
                             {onCreate && searchQuery
                                 ? `Press Enter to create "${searchQuery}"`
                                 : 'No options found'}
@@ -200,13 +200,13 @@ export function SearchableSelect({
                             type="button"
                             onClick={() => handleOptionClick(option)}
                             onMouseEnter={() => setHighlightedIndex(index)}
-                            className={`w-full flex items-center justify-between gap-3 text-left px-3 py-2 hover:bg-gray-100 ${
-                                index === highlightedIndex ? 'bg-gray-100' : ''
+                            className={`w-full flex items-center justify-between gap-3 text-left px-3 py-2 hover:bg-[var(--bg)] ${
+                                index === highlightedIndex ? 'bg-[var(--bg)]' : ''
                             }`}
                         >
                             <span>{option.label}</span>
                             {option.hint ? (
-                                <span className="text-xs text-gray-500 whitespace-nowrap">{option.hint}</span>
+                                <span className="text-xs text-[var(--mut)] whitespace-nowrap">{option.hint}</span>
                             ) : null}
                         </button>
                     ))}

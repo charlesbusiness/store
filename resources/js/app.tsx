@@ -8,9 +8,7 @@ import Login from '@/Pages/Auth/Login';
 import { AuthProvider, useAuthStore } from '@/stores/authStore';
 import { MainLayout } from '@/components/Layout';
 import PurchaseList from '@/Pages/Purchases/List';
-import PurchaseCreate from '@/Pages/Purchases/Create';
 import SaleList from '@/Pages/Sales/List';
-import SaleCreate from '@/Pages/Sales/Create';
 import Reports from '@/Pages/Reports/Index';
 import Stock from '@/Pages/Stock/Index';
 import Items from '@/Pages/Items/Index';
@@ -55,7 +53,7 @@ function ProtectedRoute() {
 function PublicRoute() {
     const { user } = useAuthStore();
     if (user) {
-        return <Navigate to="/buy" replace />;
+        return <Navigate to="/purchases" replace />;
     }
     return <Outlet />;
 }
@@ -72,8 +70,6 @@ function App() {
                         </Route>
                         <Route element={<ProtectedRoute />}>
                             <Route element={<MainLayout />}>
-                                <Route path="/buy" element={<PurchaseCreate />} />
-                                <Route path="/sell" element={<SaleCreate />} />
                                 <Route path="/" element={<Reports />} />
                                 <Route path="/reports" element={<Reports />} />
                                 <Route path="/stock" element={<Stock />} />
@@ -81,7 +77,9 @@ function App() {
                                 <Route path="/units" element={<Units />} />
                                 <Route path="/purchases" element={<PurchaseList />} />
                                 <Route path="/sales" element={<SaleList />} />
-                                {/* <Route path="/" element={<Navigate to="/buy" replace />} /> */}
+                                {/* The entry forms live in modals now; these keep old links working. */}
+                                <Route path="/buy" element={<Navigate to="/purchases" replace />} />
+                                <Route path="/sell" element={<Navigate to="/sales" replace />} />
                                 <Route path="*" element={<Navigate to="/" replace />} />
                             </Route>
                         </Route>

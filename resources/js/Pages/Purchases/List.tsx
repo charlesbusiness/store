@@ -1,9 +1,10 @@
 import { FormEvent, Fragment, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/Layout';
+import { RecordModal, PurchaseForm } from '@/components/Records';
 import { Pagination } from '@/components/ui/Pagination';
 import { groupByDate, formatDateLabel } from '@/lib/groupByDate';
 import { TrashIcon, PencilSquareIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
@@ -79,7 +80,6 @@ const iconButtonStyle: React.CSSProperties = {
 const filterInputClass = 'rounded border border-gray-300 px-2 py-1';
 
 export default function PurchaseList() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -92,6 +92,7 @@ export default function PurchaseList() {
   const [filterForm, setFilterForm] = useState({ search, dateFrom, dateTo });
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [editing, setEditing] = useState<EditState | null>(null);
+  const [showPurchaseForm, setShowPurchaseForm] = useState(false);
 
   const params: Record<string, string | number> = { page };
   if (search) params.search = search;
@@ -191,7 +192,7 @@ export default function PurchaseList() {
     <div className='p-6'>
       <div className='flex justify-between items-center mb-6'>
         <h1 className='text-2xl font-bold'>Purchases</h1>
-        <button onClick={() => navigate('/buy')} className='btn'>+ New Purchase</button>
+        <button onClick={() => setShowPurchaseForm(true)} className='btn'>+ New Purchase</button>
       </div>
 
       <form onSubmit={applyFilters} className='flex flex-wrap items-end gap-2 mb-3'>
@@ -405,6 +406,20 @@ export default function PurchaseList() {
         confirmText='Delete'
         variant='danger'
       />
+
+      <RecordModal
+        isOpen={showPurchaseForm}
+        title='Record a purchase'
+        onClose={() => setShowPurchaseForm(false)}
+      >
+        <PurchaseForm
+          onCancel={() => setShowPurchaseForm(false)}
+          onSaved={(message) => {
+            setShowPurchaseForm(false);
+            toast.success(message);
+          }}
+        />
+      </RecordModal>
     </div>
   );
 }

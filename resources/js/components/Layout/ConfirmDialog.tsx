@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { popOverlay, pushOverlay } from '@/lib/overlay';
 
 interface ConfirmDialogProps {
     isOpen: boolean;
@@ -38,10 +39,10 @@ export function ConfirmDialog({
         };
 
         document.addEventListener('keydown', handleKeyDown);
-        document.body.style.overflow = 'hidden';
+        pushOverlay();
         return () => {
             document.removeEventListener('keydown', handleKeyDown);
-            document.body.style.overflow = '';
+            popOverlay();
         };
     }, [mounted, isOpen, onCancel, onConfirm]);
 

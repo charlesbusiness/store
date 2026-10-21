@@ -1,9 +1,10 @@
 import { FormEvent, Fragment, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/Layout';
+import { RecordModal, SaleForm } from '@/components/Records';
 import { Pagination } from '@/components/ui/Pagination';
 import { groupByDate, formatDateLabel } from '@/lib/groupByDate';
 import { TrashIcon, PencilSquareIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
@@ -91,7 +92,6 @@ const iconButtonStyle: React.CSSProperties = {
 const filterInputClass = 'rounded border border-gray-300 px-2 py-1';
 
 export default function SaleList() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -106,6 +106,7 @@ export default function SaleList() {
   const [filterForm, setFilterForm] = useState({ search, dateFrom, dateTo, status });
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [editing, setEditing] = useState<EditState | null>(null);
+  const [showSaleForm, setShowSaleForm] = useState(false);
 
   const params: Record<string, string | number> = { page };
   if (search) params.search = search;
@@ -214,7 +215,7 @@ export default function SaleList() {
     <div className='p-6'>
       <div className='flex justify-between items-center mb-6'>
         <h1 className='text-2xl font-bold'>Sales</h1>
-        <button onClick={() => navigate('/sell')} className='btn'>+ New Sale</button>
+        <button onClick={() => setShowSaleForm(true)} className='btn'>+ New Sale</button>
       </div>
 
       <form onSubmit={applyFilters} className='flex flex-wrap items-end gap-2 mb-3'>
@@ -468,6 +469,20 @@ export default function SaleList() {
         confirmText='Delete'
         variant='danger'
       />
+
+      <RecordModal
+        isOpen={showSaleForm}
+        title='Record a sale'
+        onClose={() => setShowSaleForm(false)}
+      >
+        <SaleForm
+          onCancel={() => setShowSaleForm(false)}
+          onSaved={(message) => {
+            setShowSaleForm(false);
+            toast.success(message);
+          }}
+        />
+      </RecordModal>
     </div>
   );
 }

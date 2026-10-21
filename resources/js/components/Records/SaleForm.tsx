@@ -5,7 +5,14 @@ import { useRecordFormModel } from '@/hooks';
 import type { PurchasePayload, RecordConfig } from '@/lib/recordForm';
 import { SearchableSelect } from '@/components/Records';
 
-export default function SaleCreate() {
+interface SaleFormProps {
+    /** Called after a sale is stored, with the message to show the user. */
+    onSaved?: (message: string) => void;
+    /** Called when the user backs out of the form. */
+    onCancel?: () => void;
+}
+
+export function SaleForm({ onSaved, onCancel }: SaleFormProps) {
     const queryClient = useQueryClient();
 
     const { data, isLoading } = useQuery<{ data: RecordConfig }>({
@@ -22,12 +29,20 @@ export default function SaleCreate() {
     const createMutation = useMutation({
         mutationFn: (payload: PurchasePayload) => api.post('/sales', payload),
         onSuccess: (response: any) => {
-            setStatus(response?.message ?? 'Sale recorded.');
+            const message = response?.message ?? 'Sale recorded.';
             setErrors([]);
             model?.reset();
-            // Stock is drawn down, so both the ledger and the sellable list move.
+            // Stock is drawn down, so the ledger, the sellable list and every
+            // form that reads them have to move too.
             queryClient.invalidateQueries({ queryKey: ['sales'] });
+            queryClient.invalidateQueries({ queryKey: ['stock'] });
             queryClient.invalidateQueries({ queryKey: ['record-form', 'sale'] });
+            queryClient.invalidateQueries({ queryKey: ['record-form', 'purchase'] });
+            if (onSaved) {
+                onSaved(message);
+            } else {
+                setStatus(message);
+            }
         },
         onError: (error: any) => {
             const payload = error?.response?.data;
@@ -75,8 +90,6 @@ export default function SaleCreate() {
 
             <form onSubmit={handleSubmit} noValidate>
                 <div className="card">
-                    <h2>Record a sale</h2>
-
                     {model.items.length === 0 ? (
                         <div className="e">No stock available. Record a purchase first.</div>
                     ) : (
@@ -302,19 +315,24 @@ export default function SaleCreate() {
                                 </table>
                             </div>
                         )}
-
-                        <div className="row">
-                            <button
-                                className="btn"
-                                type="submit"
-                                disabled={model.lines.length === 0 || createMutation.isPending}
-                            >
-                                Save sale
-                            </button>
-                            <span className="mut">{model.lines.length} line(s)</span>
-                        </div>
                     </div>
                 )}
+
+                <div className="record-actions">
+                    <button
+                        className="btn"
+                        type="submit"
+                        disabled={model.lines.length === 0 || createMutation.isPending}
+                    >
+                        Save sale
+                    </button>
+                    <span className="mut">{model.lines.length} line(s)</span>
+                    {onCancel && (
+                        <button type="button" className="btn alt sm" onClick={onCancel}>
+                            Cancel
+                        </button>
+                    )}
+                </div>
             </form>
         </>
     );

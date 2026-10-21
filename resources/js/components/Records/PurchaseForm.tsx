@@ -4,7 +4,14 @@ import { api } from '@/lib/api';
 import { useRecordFormModel } from '@/hooks';
 import type { PurchasePayload, RecordConfig } from '@/lib/recordForm';
 
-export default function PurchaseCreate() {
+interface PurchaseFormProps {
+    /** Called after a purchase is stored, with the message to show the user. */
+    onSaved?: (message: string) => void;
+    /** Called when the user backs out of the form. */
+    onCancel?: () => void;
+}
+
+export function PurchaseForm({ onSaved, onCancel }: PurchaseFormProps) {
     const queryClient = useQueryClient();
 
     const { data, isLoading } = useQuery<{ data: RecordConfig }>({
@@ -21,10 +28,20 @@ export default function PurchaseCreate() {
     const createMutation = useMutation({
         mutationFn: (payload: PurchasePayload) => api.post('/purchases', payload),
         onSuccess: (response: any) => {
-            setStatus(response?.message ?? 'Purchase recorded.');
+            const message = response?.message ?? 'Purchase recorded.';
             setErrors([]);
             model?.reset();
+            // Stock and the item catalogue both move, so every form that reads
+            // them has to pick the new numbers up.
             queryClient.invalidateQueries({ queryKey: ['purchases'] });
+            queryClient.invalidateQueries({ queryKey: ['stock'] });
+            queryClient.invalidateQueries({ queryKey: ['record-form', 'purchase'] });
+            queryClient.invalidateQueries({ queryKey: ['record-form', 'sale'] });
+            if (onSaved) {
+                onSaved(message);
+            } else {
+                setStatus(message);
+            }
         },
         onError: (error: any) => {
             const payload = error?.response?.data;
@@ -68,8 +85,6 @@ export default function PurchaseCreate() {
 
             <form onSubmit={handleSubmit} noValidate>
                 <div className="card">
-                    <h2>Record a purchase</h2>
-
                     <div className="form-rows">
                         <div className="form-row">
                             <label className="form-field">
@@ -389,15 +404,20 @@ export default function PurchaseCreate() {
                                 </table>
                             </div>
                         )}
-
-                        <div className="row">
-                            <button className="btn" type="submit" disabled={model.lines.length === 0 || createMutation.isPending}>
-                                Save purchase
-                            </button>
-                            <span className="mut">{model.lines.length} line(s)</span>
-                        </div>
                     </div>
                 )}
+
+                <div className="record-actions">
+                    <button className="btn" type="submit" disabled={model.lines.length === 0 || createMutation.isPending}>
+                        Save purchase
+                    </button>
+                    <span className="mut">{model.lines.length} line(s)</span>
+                    {onCancel && (
+                        <button type="button" className="btn alt sm" onClick={onCancel}>
+                            Cancel
+                        </button>
+                    )}
+                </div>
             </form>
         </>
     );
