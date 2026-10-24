@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ReceiptController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -11,6 +12,11 @@ use Illuminate\Support\Facades\Route;
 | API routes are in routes/api.php
 |
 */
+
+// Public, signed receipt link. It must stay ahead of the SPA catch-all.
+Route::get('/receipts/sales/{sale}', [ReceiptController::class, 'show'])
+    ->middleware(['signed', 'throttle:30,1'])
+    ->name('receipts.public');
 
 // SPA catch-all: serve the React app for all non-API routes
 Route::get('/{any}', fn () => view('app'))

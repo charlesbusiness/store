@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\SaleController;
 use App\Http\Controllers\Api\StockController;
 use App\Http\Controllers\Api\UnitController;
 use App\Http\Controllers\Api\UploadController;
+use App\Http\Controllers\ReceiptController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
@@ -45,7 +46,8 @@ Route::middleware('auth:sanctum')->group(function () {
         ->name('sales.store')
         ->defaults('type', RecordType::Sale->value);
     Route::get('/sales/{sale}', [SaleController::class, 'show']);
-    Route::get('/sales/{sale}/receipt', [SaleController::class, 'receipt'])->name('sales.receipt');
+    Route::get('/sales/{sale}/receipt', [ReceiptController::class, 'download'])->name('sales.receipt');
+    Route::get('/sales/{sale}/receipt-link', [ReceiptController::class, 'shareLink'])->name('sales.receipt-link');
     Route::delete('/sales/{sale}', [SaleController::class, 'destroy']);
     Route::delete('/sales/{sale}/lines/{line}', [SaleController::class, 'destroyLine']);
     Route::patch('/sales/{sale}/lines/{line}', [SaleController::class, 'updateLine']);

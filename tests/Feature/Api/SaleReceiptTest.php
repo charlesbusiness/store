@@ -121,4 +121,80 @@ class SaleReceiptTest extends TestCase
 
         $this->get("/api/sales/{$purchase->id}/receipt")->assertNotFound();
     }
+
+    public function test_an_authenticated_user_can_generate_a_receipt_share_link(): void
+    {
+        $this->actingAs($this->user());
+
+        $sale = $this->sale();
+
+        $response = $this->getJson("/api/sales/{$sale->id}/receipt-link");
+
+        $response->assertOk();
+        $response->assertJsonStructure(['url']);
+        $this->assertStringContainsString('/receipts/sales/'.$sale->id, $response->json('url'));
+        $this->assertStringContainsString('signature=', $response->json('url'));
+    }
+
+    public function test_a_receipt_share_link_can_include_a_customer_name(): void
+    {
+        $this->actingAs($this->user());
+
+        $sale = $this->sale();
+
+        $response = $this->getJson("/api/sales/{$sale->id}/receipt-link?customer_name=Ada%20Obi");
+
+        $response->assertOk();
+        $url = $response->json('url');
+        $this->assertStringContainsString('customer_name=', $url);
+    }
+
+    public function test_a_public_signed_receipt_link_opens_the_pdf(): void
+    {
+        $this->actingAs($this->user());
+
+        $sale = $this->sale();
+
+        $response = $this->getJson("/api/sales/{$sale->id}/receipt-link");
+        $url = $response->json('url');
+
+        $this->app['auth']->forgetGuards();
+
+        $public = $this->get($url);
+        $public->assertOk();
+        $public->assertHeader('content-type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF', $public->getContent());
+    }
+
+    public function test_a_tampered_receipt_signature_is_rejected(): void
+    {
+        $this->actingAs($this->user());
+
+        $sale = $this->sale();
+
+        $response = $this->getJson("/api/sales/{$sale->id}/receipt-link");
+        $url = $response->json('url');
+
+        $this->app['auth']->forgetGuards();
+
+        $this->get($url.'&signature=invalid')->assertStatus(403);
+    }
+
+    public function test_a_missing_receipt_signature_is_rejected(): void
+    {
+        $sale = $this->sale();
+
+        $this->get("/receipts/sales/{$sale->id}")->assertStatus(403);
+    }
+
+    public function test_a_purchase_cannot_generate_a_sale_receipt_link(): void
+    {
+        $this->actingAs($this->user());
+
+        $item = $this->item('Yam');
+        $line = $this->recordLine($item, 'purchase', 2, 'bag', 5000, '2026-10-24');
+        $purchase = $line->transaction()->firstOrFail();
+
+        $this->getJson("/api/sales/{$purchase->id}/receipt-link")->assertNotFound();
+    }
 }

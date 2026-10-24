@@ -7,7 +7,10 @@ import { ConfirmDialog } from '@/components/Layout';
 import { RecordModal, SaleForm } from '@/components/Records';
 import { Pagination } from '@/components/ui/Pagination';
 import { groupByDate, formatDateLabel } from '@/lib/groupByDate';
-import { TrashIcon, PencilSquareIcon, CheckIcon, XMarkIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { TrashIcon, PencilSquareIcon, CheckIcon, XMarkIcon, ArrowDownTrayIcon, ShareIcon } from '@heroicons/react/24/outline';
+import { SaleReceiptPreview } from '@/components/Records/SaleReceiptPreview';
+import { toPng } from 'html-to-image';
+import { useRef } from 'react';
 
 interface SaleLine {
   id: number;
@@ -107,9 +110,11 @@ export default function SaleList() {
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [editing, setEditing] = useState<EditState | null>(null);
   const [showSaleForm, setShowSaleForm] = useState(false);
-  const [receiptSaleId, setReceiptSaleId] = useState<number | null>(null);
+  const [receiptSale, setReceiptSale] = useState<Sale | null>(null);
   const [customerName, setCustomerName] = useState('');
-  const [downloadingReceiptId, setDownloadingReceiptId] = useState<number | null>(null);
+  const [receiptFormat, setReceiptFormat] = useState<'pdf' | 'image'>('pdf');
+  const [receiptBusy, setReceiptBusy] = useState(false);
+  const receiptPreviewRef = useRef<HTMLDivElement | null>(null);
 
   const params: Record<string, string | number> = { page };
   if (search) params.search = search;
@@ -192,29 +197,103 @@ export default function SaleList() {
     }
   };
 
-  const downloadReceipt = async (saleId: number, customerName: string) => {
-    setDownloadingReceiptId(saleId);
+  const downloadReceiptPdf = async (saleId: number, name: string) => {
+    const blob = await api.get<Blob, Blob>(`/sales/${saleId}/receipt`, {
+      responseType: 'blob',
+      params: name === '' ? {} : { customer_name: name },
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `receipt-sale-${saleId}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
 
+  const downloadReceiptImage = async (saleId: number) => {
+    const node = receiptPreviewRef.current;
+    if (!node) throw new Error('preview not ready');
+    const dataUrl = await toPng(node, { cacheBust: true, pixelRatio: 2 });
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = `receipt-sale-${saleId}.png`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const handleDownloadReceipt = async () => {
+    if (!receiptSale || receiptBusy) return;
+    setReceiptBusy(true);
     try {
       const name = customerName.trim();
-
-      const blob = await api.get<Blob, Blob>(`/sales/${saleId}/receipt`, {
-        responseType: 'blob',
-        params: name === '' ? {} : { customer_name: name },
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `receipt-sale-${saleId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setReceiptSaleId(null);
+      if (receiptFormat === 'pdf') {
+        await downloadReceiptPdf(receiptSale.id, name);
+      } else {
+        await downloadReceiptImage(receiptSale.id);
+      }
+      toast.success('Receipt downloaded');
     } catch {
       toast.error('Failed to download receipt');
     } finally {
-      setDownloadingReceiptId(null);
+      setReceiptBusy(false);
+    }
+  };
+
+  const handleShareReceipt = async () => {
+    if (!receiptSale || receiptBusy) return;
+    setReceiptBusy(true);
+    const name = customerName.trim();
+    const title = `Receipt #${receiptSale.id}`;
+    const text = 'Your receipt';
+
+    try {
+      if (receiptFormat === 'image') {
+        const node = receiptPreviewRef.current;
+        if (!node) throw new Error('preview not ready');
+        const dataUrl = await toPng(node, { cacheBust: true, pixelRatio: 2 });
+        const res = await fetch(dataUrl);
+        const blob = await res.blob();
+        const file = new File([blob], `receipt-sale-${receiptSale.id}.png`, { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ title, text, files: [file] });
+          return;
+        }
+      }
+
+      if (receiptFormat === 'pdf') {
+        const blob = await api.get<Blob, Blob>(`/sales/${receiptSale.id}/receipt`, {
+          responseType: 'blob',
+          params: name === '' ? {} : { customer_name: name },
+        });
+        const file = new File([blob], `receipt-sale-${receiptSale.id}.pdf`, { type: 'application/pdf' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ title, text, files: [file] });
+          return;
+        }
+      }
+
+      const response: any = await api.get(`/sales/${receiptSale.id}/receipt-link`, {
+        params: name === '' ? {} : { customer_name: name },
+      });
+      const url = response.url || response.data?.url;
+      if (navigator.share) {
+        try {
+          await navigator.share({ title, text, url });
+          return;
+        } catch (err: any) {
+          if (err?.name === 'AbortError') return;
+        }
+      }
+      await navigator.clipboard.writeText(url);
+      toast.success('Share link copied');
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
+      toast.error('Failed to share receipt');
+    } finally {
+      setReceiptBusy(false);
     }
   };
 
@@ -389,11 +468,12 @@ export default function SaleList() {
                                 <button
                                   onClick={() => {
                                     setCustomerName('');
-                                    setReceiptSaleId(sale.id);
+                                    setReceiptFormat('pdf');
+                                    setReceiptSale(sale);
                                   }}
                                   className='btn alt sm mt-2 inline-flex items-center gap-1'
-                                  title='Download receipt'
-                                  aria-label='Download receipt'
+                                  title='Receipt'
+                                  aria-label='Receipt'
                                 >
                                   <ArrowDownTrayIcon className='h-4 w-4' />
                                   Receipt
@@ -512,44 +592,71 @@ export default function SaleList() {
       />
 
       <RecordModal
-        isOpen={receiptSaleId !== null}
-        title='Download receipt'
-        onClose={() => setReceiptSaleId(null)}
+        isOpen={receiptSale !== null}
+        title='Receipt'
+        onClose={() => {
+          if (!receiptBusy) {
+            setReceiptSale(null);
+          }
+        }}
       >
-        <form
-          onSubmit={(event: FormEvent) => {
-            event.preventDefault();
-            if (receiptSaleId !== null) {
-              downloadReceipt(receiptSaleId, customerName);
-            }
-          }}
-          className='space-y-4'
-        >
-          <label>
-            <span>Customer name (optional)</span>
-            <input
-              type='text'
-              value={customerName}
-              onChange={(event) => setCustomerName(event.target.value)}
-              maxLength={120}
-              placeholder='e.g. Ada Obi'
-            />
-          </label>
+        {receiptSale && (
+          <div className='space-y-4'>
+            <label>
+              <span>Customer name (optional)</span>
+              <input
+                type='text'
+                value={customerName}
+                onChange={(event) => setCustomerName(event.target.value)}
+                maxLength={120}
+                placeholder='e.g. Ada Obi'
+              />
+            </label>
 
-          <div className='flex justify-end gap-2'>
-            <button
-              type='button'
-              onClick={() => setReceiptSaleId(null)}
-              disabled={downloadingReceiptId !== null}
-              className='btn alt'
-            >
-              Cancel
-            </button>
-            <button type='submit' disabled={downloadingReceiptId !== null} className='btn'>
-              {downloadingReceiptId !== null ? 'Downloading...' : 'Download'}
-            </button>
+            <div className='flex items-center justify-between'>
+              <span className='text-sm text-gray-600'>Format</span>
+              <div className='flex rounded border border-gray-300 overflow-hidden'>
+                <button
+                  type='button'
+                  onClick={() => setReceiptFormat('pdf')}
+                  className={`px-3 py-1 text-sm ${receiptFormat === 'pdf' ? 'bg-gray-900 text-white' : 'bg-white'}`}
+                >
+                  PDF
+                </button>
+                <button
+                  type='button'
+                  onClick={() => setReceiptFormat('image')}
+                  className={`px-3 py-1 text-sm ${receiptFormat === 'image' ? 'bg-gray-900 text-white' : 'bg-white'}`}
+                >
+                  Image
+                </button>
+              </div>
+            </div>
+
+            <div className='flex justify-center overflow-auto rounded border border-gray-200 bg-gray-50 p-4'>
+              <SaleReceiptPreview ref={receiptPreviewRef} sale={receiptSale} customerName={customerName} />
+            </div>
+
+            <div className='flex justify-end gap-2'>
+              <button
+                type='button'
+                onClick={() => setReceiptSale(null)}
+                disabled={receiptBusy}
+                className='btn alt'
+              >
+                Cancel
+              </button>
+              <button type='button' onClick={handleShareReceipt} disabled={receiptBusy} className='btn alt inline-flex items-center gap-1'>
+                <ShareIcon className='h-4 w-4' />
+                {receiptBusy ? 'Working...' : 'Share'}
+              </button>
+              <button type='button' onClick={handleDownloadReceipt} disabled={receiptBusy} className='btn inline-flex items-center gap-1'>
+                <ArrowDownTrayIcon className='h-4 w-4' />
+                {receiptBusy ? 'Working...' : 'Download'}
+              </button>
+            </div>
           </div>
-        </form>
+        )}
       </RecordModal>
 
       <RecordModal

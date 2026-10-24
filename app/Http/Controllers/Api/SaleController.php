@@ -16,11 +16,9 @@ use App\Services\Record\SaleRecorder;
 use App\Services\Stock\ActivityReader;
 use App\Services\Stock\AvailabilityChecker;
 use App\Support\Concerns\FormatsValues;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -106,30 +104,6 @@ class SaleController extends Controller
         $sale->load(['lines.item', 'lines.unit']);
 
         return response()->json(['data' => new SaleResource($sale)]);
-    }
-
-    /**
-     * A customer-facing receipt for one sale. Deliberately omits cost and
-     * profit: the customer sees what they bought and what they paid, nothing
-     * about the shop's margin.
-     */
-    public function receipt(Request $request, Transaction $sale): Response
-    {
-        abort_unless($sale->isSale(), 404);
-
-        $validated = $request->validate([
-            'customer_name' => ['nullable', 'string', 'max:120'],
-        ]);
-        $customerName = trim((string) ($validated['customer_name'] ?? ''));
-
-        $sale->load(['lines.item', 'lines.unit']);
-
-        return Pdf::loadView('receipts.sale', [
-            'sale' => $sale,
-            'customerName' => $customerName,
-        ])
-            ->setPaper('a5')
-            ->download("receipt-sale-{$sale->id}.pdf");
     }
 
     public function destroy(Transaction $sale): JsonResponse

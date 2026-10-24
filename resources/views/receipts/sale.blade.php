@@ -50,7 +50,7 @@
 </head>
 <body>
   <div class="header">
-    <h1 class="shop">Stockly</h1>
+    <h1 class="shop">Zaveb Horizon Integrated Solutions</h1>
     <p class="title">Sales Receipt</p>
 
     <table class="meta">

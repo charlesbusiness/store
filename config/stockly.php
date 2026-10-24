@@ -55,6 +55,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Receipts
+    |--------------------------------------------------------------------------
+    |
+    | Number of days a generated share link remains valid for before it
+    | expires. The customer-facing receipt omits cost and profit data.
+    |
+    */
+
+    'receipt_share_days' => env('RECEIPT_SHARE_DAYS', 30),
+
+    /*
+    |--------------------------------------------------------------------------
     | Demo data
     |--------------------------------------------------------------------------
     |
