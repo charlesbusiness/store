@@ -105,9 +105,6 @@ export const SaleReceiptPreview = forwardRef<HTMLDivElement, SaleReceiptPreviewP
               <th style={{ textAlign: 'left', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, color: '#6b7280', borderBottom: '1px solid #d1d5db', padding: '6px 4px' }}>
                 Item
               </th>
-              <th style={{ textAlign: 'left', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, color: '#6b7280', borderBottom: '1px solid #d1d5db', padding: '6px 4px' }}>
-                Date
-              </th>
               <th style={{ textAlign: 'right', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, color: '#6b7280', borderBottom: '1px solid #d1d5db', padding: '6px 4px' }}>
                 Qty
               </th>
@@ -122,7 +119,7 @@ export const SaleReceiptPreview = forwardRef<HTMLDivElement, SaleReceiptPreviewP
           <tbody>
             {sale.lines.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ padding: '7px 4px', textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>
+                <td colSpan={4} style={{ padding: '7px 4px', textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>
                   No items.
                 </td>
               </tr>
@@ -131,9 +128,6 @@ export const SaleReceiptPreview = forwardRef<HTMLDivElement, SaleReceiptPreviewP
                 <tr key={line.id}>
                   <td style={{ padding: '7px 4px', borderBottom: '1px solid #e5e7eb', verticalAlign: 'top' }}>
                     {line.item_name || line.item?.name || `Item #${line.id}`}
-                  </td>
-                  <td style={{ padding: '7px 4px', borderBottom: '1px solid #e5e7eb', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                    {date}
                   </td>
                   <td style={{ padding: '7px 4px', borderBottom: '1px solid #e5e7eb', verticalAlign: 'top', textAlign: 'right', whiteSpace: 'nowrap' }}>
                     {quantityLabel(line)}

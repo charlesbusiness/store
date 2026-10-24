@@ -71,7 +71,6 @@
     <thead>
       <tr>
         <th>Item</th>
-        <th>Date</th>
         <th class="r">Qty</th>
         <th class="r">Unit Price</th>
         <th class="r">Total</th>
@@ -81,14 +80,13 @@
       @forelse ($sale->lines as $line)
         <tr>
           <td>{{ $line->item?->name ?? 'Item #'.$line->item_id }}</td>
-          <td class="nowrap">{{ $sale->transacted_on?->format('M j, Y') }}</td>
           <td class="r">{{ $line->unit?->quantityLabel($line->qty) ?? $line->qty }}</td>
           <td class="r">@money($line->unit_price)</td>
           <td class="r">@money($line->total)</td>
         </tr>
       @empty
         <tr>
-          <td colspan="5" class="r">No items.</td>
+          <td colspan="4" class="r">No items.</td>
         </tr>
       @endforelse
     </tbody>
