@@ -36,18 +36,8 @@ function formatDate(date: string): string {
 }
 
 function quantityLabel(line: SaleLine): string {
-  if (line.quantity) return line.quantity;
-  const qty = line.qty;
-  const unit = line.unit;
-  if (unit?.quantityLabel) {
-    try {
-      return unit.quantityLabel(qty);
-    } catch {
-      // ignore
-    }
-  }
-  const label = line.unit_label || line.unit_code;
-  return `${qty} ${label}`;
+  const qty = Number(line.qty ?? 0);
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 3 }).format(qty);
 }
 
 export const SaleReceiptPreview = forwardRef<HTMLDivElement, SaleReceiptPreviewProps>(

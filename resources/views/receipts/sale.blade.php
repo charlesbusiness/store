@@ -80,7 +80,7 @@
       @forelse ($sale->lines as $line)
         <tr>
           <td>{{ $line->item?->name ?? 'Item #'.$line->item_id }}</td>
-          <td class="r">{{ $line->unit?->quantityLabel($line->qty) ?? $line->qty }}</td>
+          <td class="r">{{ \App\Support\Concerns\FormatsValues::plain($line->qty, (int) config('stockly.quantity_decimals', 3)) }}</td>
           <td class="r">@plain($line->unit_price, 2)</td>
           <td class="r">@plain($line->total, 2)</td>
         </tr>

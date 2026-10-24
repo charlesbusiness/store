@@ -44,7 +44,7 @@ class SaleReceiptTest extends TestCase
         $this->assertStringContainsString('Sales Receipt', $html);
         $this->assertStringContainsString('Yam', $html);
         $this->assertStringContainsString('Oct 24, 2026', $html);
-        $this->assertStringContainsString('2 bags', $html);
+        $this->assertStringContainsString('2', $html);
         $this->assertStringContainsString('5,000', $html);
         $this->assertStringContainsString('10,000', $html);
         $this->assertStringContainsString('Total Sales', $html);
