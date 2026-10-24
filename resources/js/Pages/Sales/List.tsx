@@ -75,6 +75,12 @@ function money(value: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'NGN' }).format(value);
 }
 
+function sanitizeFilename(name: string): string {
+  const cleaned = name.replace(/[^A-Za-z0-9 _.-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (cleaned === '') return 'receipt';
+  return cleaned.slice(0, 80);
+}
+
 function lineCostPrice(line: SaleLine): string {
   return line.cost != null && line.qty > 0 ? money(line.cost / line.qty) : '—';
 }
@@ -198,27 +204,31 @@ export default function SaleList() {
   };
 
   const downloadReceiptPdf = async (saleId: number, name: string) => {
+    const customerName = name.trim();
     const blob = await api.get<Blob, Blob>(`/sales/${saleId}/receipt`, {
       responseType: 'blob',
-      params: name === '' ? {} : { customer_name: name },
+      params: customerName === '' ? {} : { customer_name: customerName },
     });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `receipt-sale-${saleId}.pdf`;
+    const safeName = customerName !== '' ? sanitizeFilename(`sales-${customerName}`) : `receipt-sale-${saleId}`;
+    link.download = `${safeName}.pdf`;
     document.body.appendChild(link);
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  const downloadReceiptImage = async (saleId: number) => {
+  const downloadReceiptImage = async (saleId: number, customerName?: string) => {
     const node = receiptPreviewRef.current;
     if (!node) throw new Error('preview not ready');
     const dataUrl = await toPng(node, { cacheBust: true, pixelRatio: 2 });
     const link = document.createElement('a');
     link.href = dataUrl;
-    link.download = `receipt-sale-${saleId}.png`;
+    const name = (customerName || '').trim();
+    const safeName = name !== '' ? sanitizeFilename(`sales-${name}`) : `receipt-sale-${saleId}`;
+    link.download = `${safeName}.png`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -232,7 +242,7 @@ export default function SaleList() {
       if (receiptFormat === 'pdf') {
         await downloadReceiptPdf(receiptSale.id, name);
       } else {
-        await downloadReceiptImage(receiptSale.id);
+        await downloadReceiptImage(receiptSale.id, name);
       }
       toast.success('Receipt downloaded');
     } catch {
@@ -256,7 +266,8 @@ export default function SaleList() {
         const dataUrl = await toPng(node, { cacheBust: true, pixelRatio: 2 });
         const res = await fetch(dataUrl);
         const blob = await res.blob();
-        const file = new File([blob], `receipt-sale-${receiptSale.id}.png`, { type: 'image/png' });
+        const fileName = name !== '' ? sanitizeFilename(`sales-${name}`) + '.png' : `receipt-sale-${receiptSale.id}.png`;
+        const file = new File([blob], fileName, { type: 'image/png' });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({ title, text, files: [file] });
           return;
@@ -268,7 +279,8 @@ export default function SaleList() {
           responseType: 'blob',
           params: name === '' ? {} : { customer_name: name },
         });
-        const file = new File([blob], `receipt-sale-${receiptSale.id}.pdf`, { type: 'application/pdf' });
+        const fileName = name !== '' ? sanitizeFilename(`sales-${name}`) + '.pdf' : `receipt-sale-${receiptSale.id}.pdf`;
+        const file = new File([blob], fileName, { type: 'application/pdf' });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({ title, text, files: [file] });
           return;

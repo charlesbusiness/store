@@ -90,7 +90,7 @@ class SaleReceiptTest extends TestCase
 
         $response->assertOk();
         $response->assertHeader('content-type', 'application/pdf');
-        $response->assertDownload("receipt-sale-{$sale->id}.pdf");
+        $response->assertDownload("sales-Ada Obi.pdf");
     }
 
     public function test_a_customer_name_is_limited_to_a_sensible_length(): void

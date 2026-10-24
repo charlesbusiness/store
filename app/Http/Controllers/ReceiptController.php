@@ -21,8 +21,24 @@ class ReceiptController extends Controller
 {
     public function download(ReceiptRequest $request, Transaction $sale): Response
     {
-        return $this->render($sale, $this->customerName($request))
-            ->download("receipt-sale-{$sale->id}.pdf");
+        $customerName = $this->customerName($request);
+        $filename = $customerName !== ''
+            ? $this->safeReceiptFilename('sales-'.$customerName)
+            : "receipt-sale-{$sale->id}";
+
+        return $this->render($sale, $customerName)
+            ->download($filename.'.pdf');
+    }
+
+    private function safeReceiptFilename(string $name): string
+    {
+        $name = trim(preg_replace('/[^A-Za-z0-9 _.-]+/', ' ', $name) ?? '');
+        $name = trim(preg_replace('/\s+/', ' ', $name) ?? '');
+        if ($name === '') {
+            return 'receipt';
+        }
+
+        return mb_substr($name, 0, 80);
     }
 
     public function show(ReceiptRequest $request, Transaction $sale): Response
