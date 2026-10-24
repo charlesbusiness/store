@@ -25,8 +25,8 @@ interface SaleReceiptPreviewProps {
   customerName?: string;
 }
 
-function money(value: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'NGN' }).format(value);
+function formatPlain(value: number): string {
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(Number(value || 0));
 }
 
 function formatDate(date: string): string {
@@ -60,20 +60,20 @@ export const SaleReceiptPreview = forwardRef<HTMLDivElement, SaleReceiptPreviewP
         ref={ref}
         data-receipt-preview
         style={{
-          width: 380,
+          width: 340,
           background: '#ffffff',
           color: '#111827',
           fontFamily: '"DejaVu Sans", Arial, Helvetica, sans-serif',
-          fontSize: 11,
-          lineHeight: 1.45,
-          padding: 24,
+          fontSize: 10,
+          lineHeight: 1.4,
+          padding: 18,
         }}
       >
-        <div style={{ borderBottom: '2px solid #111827', paddingBottom: 12, marginBottom: 16 }}>
-          <div style={{ fontSize: 20, fontWeight: 'bold', letterSpacing: 0.5 }}>Zaveb Horizon Integrated Solutions</div>
+        <div style={{ borderBottom: '2px solid #111827', paddingBottom: 10, marginBottom: 14 }}>
+          <div style={{ fontSize: 16, fontWeight: 'bold', letterSpacing: 0.5 }}>Zaveb Horizon Integrated Solutions</div>
           <div
             style={{
-              fontSize: 12,
+              fontSize: 11,
               color: '#4b5563',
               marginTop: 2,
               textTransform: 'uppercase',
@@ -102,41 +102,41 @@ export const SaleReceiptPreview = forwardRef<HTMLDivElement, SaleReceiptPreviewP
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, color: '#6b7280', borderBottom: '1px solid #d1d5db', padding: '6px 4px' }}>
+              <th style={{ textAlign: 'left', fontSize: 8, textTransform: 'uppercase', letterSpacing: 0.5, color: '#6b7280', borderBottom: '1px solid #d1d5db', padding: '5px 3px' }}>
                 Item
               </th>
-              <th style={{ textAlign: 'right', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, color: '#6b7280', borderBottom: '1px solid #d1d5db', padding: '6px 4px' }}>
+              <th style={{ textAlign: 'right', fontSize: 8, textTransform: 'uppercase', letterSpacing: 0.5, color: '#6b7280', borderBottom: '1px solid #d1d5db', padding: '5px 3px' }}>
                 Qty
               </th>
-              <th style={{ textAlign: 'right', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, color: '#6b7280', borderBottom: '1px solid #d1d5db', padding: '6px 4px' }}>
-                Unit Price
+              <th style={{ textAlign: 'right', fontSize: 8, textTransform: 'uppercase', letterSpacing: 0.5, color: '#6b7280', borderBottom: '1px solid #d1d5db', padding: '5px 3px' }}>
+                Unit Price (₦)
               </th>
-              <th style={{ textAlign: 'right', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, color: '#6b7280', borderBottom: '1px solid #d1d5db', padding: '6px 4px' }}>
-                Total
+              <th style={{ textAlign: 'right', fontSize: 8, textTransform: 'uppercase', letterSpacing: 0.5, color: '#6b7280', borderBottom: '1px solid #d1d5db', padding: '5px 3px' }}>
+                Total (₦)
               </th>
             </tr>
           </thead>
           <tbody>
             {sale.lines.length === 0 ? (
               <tr>
-                <td colSpan={4} style={{ padding: '7px 4px', textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>
+                <td colSpan={4} style={{ padding: '6px 3px', textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>
                   No items.
                 </td>
               </tr>
             ) : (
               sale.lines.map((line) => (
                 <tr key={line.id}>
-                  <td style={{ padding: '7px 4px', borderBottom: '1px solid #e5e7eb', verticalAlign: 'top' }}>
+                  <td style={{ padding: '6px 3px', borderBottom: '1px solid #e5e7eb', verticalAlign: 'top' }}>
                     {line.item_name || line.item?.name || `Item #${line.id}`}
                   </td>
-                  <td style={{ padding: '7px 4px', borderBottom: '1px solid #e5e7eb', verticalAlign: 'top', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  <td style={{ padding: '6px 3px', borderBottom: '1px solid #e5e7eb', verticalAlign: 'top', textAlign: 'right', whiteSpace: 'nowrap' }}>
                     {quantityLabel(line)}
                   </td>
-                  <td style={{ padding: '7px 4px', borderBottom: '1px solid #e5e7eb', verticalAlign: 'top', textAlign: 'right' }}>
-                    {money(line.unit_price)}
+                  <td style={{ padding: '6px 3px', borderBottom: '1px solid #e5e7eb', verticalAlign: 'top', textAlign: 'right' }}>
+                    {formatPlain(line.unit_price)}
                   </td>
-                  <td style={{ padding: '7px 4px', borderBottom: '1px solid #e5e7eb', verticalAlign: 'top', textAlign: 'right' }}>
-                    {money(line.total)}
+                  <td style={{ padding: '6px 3px', borderBottom: '1px solid #e5e7eb', verticalAlign: 'top', textAlign: 'right' }}>
+                    {formatPlain(line.total)}
                   </td>
                 </tr>
               ))
@@ -144,12 +144,12 @@ export const SaleReceiptPreview = forwardRef<HTMLDivElement, SaleReceiptPreviewP
           </tbody>
         </table>
 
-        <div style={{ marginTop: 16, borderTop: '2px solid #111827', paddingTop: 10, textAlign: 'right' }}>
-          <div style={{ fontSize: 11, color: '#4b5563', textTransform: 'uppercase', letterSpacing: 1 }}>Total Sales</div>
-          <div style={{ fontSize: 18, fontWeight: 'bold' }}>{money(sale.total)}</div>
+        <div style={{ marginTop: 14, borderTop: '2px solid #111827', paddingTop: 10, textAlign: 'right' }}>
+          <div style={{ fontSize: 11, color: '#4b5563', textTransform: 'uppercase', letterSpacing: 1 }}>Total Sales (₦)</div>
+          <div style={{ fontSize: 16, fontWeight: 'bold' }}>{formatPlain(sale.total)}</div>
         </div>
 
-        <div style={{ marginTop: 22, textAlign: 'center', color: '#6b7280', fontSize: 10 }}>Thank you for your patronage.</div>
+        <div style={{ marginTop: 18, textAlign: 'center', color: '#6b7280', fontSize: 10 }}>Thank you for your patronage.</div>
       </div>
     );
   },

@@ -72,8 +72,8 @@
       <tr>
         <th>Item</th>
         <th class="r">Qty</th>
-        <th class="r">Unit Price</th>
-        <th class="r">Total</th>
+        <th class="r">Unit Price ({{ config('stockly.currency') }})</th>
+        <th class="r">Total ({{ config('stockly.currency') }})</th>
       </tr>
     </thead>
     <tbody>
@@ -81,8 +81,8 @@
         <tr>
           <td>{{ $line->item?->name ?? 'Item #'.$line->item_id }}</td>
           <td class="r">{{ $line->unit?->quantityLabel($line->qty) ?? $line->qty }}</td>
-          <td class="r">@money($line->unit_price)</td>
-          <td class="r">@money($line->total)</td>
+          <td class="r">@plain($line->unit_price, 2)</td>
+          <td class="r">@plain($line->total, 2)</td>
         </tr>
       @empty
         <tr>
@@ -93,8 +93,8 @@
   </table>
 
   <div class="total">
-    <div class="label">Total Sales</div>
-    <div class="value">@money($sale->total())</div>
+    <div class="label">Total Sales ({{ config('stockly.currency') }})</div>
+    <div class="value">@plain($sale->total(), 2)</div>
   </div>
 
   <div class="footer">Thank you for your patronage.</div>
