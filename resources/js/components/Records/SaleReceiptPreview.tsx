@@ -60,13 +60,13 @@ export const SaleReceiptPreview = forwardRef<HTMLDivElement, SaleReceiptPreviewP
         ref={ref}
         data-receipt-preview
         style={{
-          width: 340,
+          width: 400,
           background: '#ffffff',
           color: '#111827',
           fontFamily: '"DejaVu Sans", Arial, Helvetica, sans-serif',
-          fontSize: 10,
-          lineHeight: 1.4,
-          padding: 18,
+          fontSize: 9,
+          lineHeight: 1.38,
+          padding: 20,
         }}
       >
         <div style={{ borderBottom: '2px solid #111827', paddingBottom: 10, marginBottom: 14 }}>
@@ -99,19 +99,25 @@ export const SaleReceiptPreview = forwardRef<HTMLDivElement, SaleReceiptPreviewP
           </table>
         </div>
 
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: '46%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '20%' }} />
+            <col style={{ width: '20%' }} />
+          </colgroup>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', fontSize: 8, textTransform: 'uppercase', letterSpacing: 0.5, color: '#6b7280', borderBottom: '1px solid #d1d5db', padding: '5px 3px' }}>
+              <th style={{ textAlign: 'left', fontSize: 8, textTransform: 'uppercase', letterSpacing: 0.4, color: '#6b7280', borderBottom: '1px solid #d1d5db', padding: '4px 2px' }}>
                 Item
               </th>
-              <th style={{ textAlign: 'right', fontSize: 8, textTransform: 'uppercase', letterSpacing: 0.5, color: '#6b7280', borderBottom: '1px solid #d1d5db', padding: '5px 3px' }}>
+              <th style={{ textAlign: 'right', fontSize: 8, textTransform: 'uppercase', letterSpacing: 0.4, color: '#6b7280', borderBottom: '1px solid #d1d5db', padding: '4px 2px', whiteSpace: 'nowrap' }}>
                 Qty
               </th>
-              <th style={{ textAlign: 'right', fontSize: 8, textTransform: 'uppercase', letterSpacing: 0.5, color: '#6b7280', borderBottom: '1px solid #d1d5db', padding: '5px 3px' }}>
+              <th style={{ textAlign: 'right', fontSize: 8, textTransform: 'uppercase', letterSpacing: 0.4, color: '#6b7280', borderBottom: '1px solid #d1d5db', padding: '4px 2px', whiteSpace: 'nowrap' }}>
                 Unit Price (₦)
               </th>
-              <th style={{ textAlign: 'right', fontSize: 8, textTransform: 'uppercase', letterSpacing: 0.5, color: '#6b7280', borderBottom: '1px solid #d1d5db', padding: '5px 3px' }}>
+              <th style={{ textAlign: 'right', fontSize: 8, textTransform: 'uppercase', letterSpacing: 0.4, color: '#6b7280', borderBottom: '1px solid #d1d5db', padding: '4px 2px', whiteSpace: 'nowrap' }}>
                 Total (₦)
               </th>
             </tr>
@@ -119,23 +125,23 @@ export const SaleReceiptPreview = forwardRef<HTMLDivElement, SaleReceiptPreviewP
           <tbody>
             {sale.lines.length === 0 ? (
               <tr>
-                <td colSpan={4} style={{ padding: '6px 3px', textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>
+                <td colSpan={4} style={{ padding: '4px 2px', textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>
                   No items.
                 </td>
               </tr>
             ) : (
               sale.lines.map((line) => (
                 <tr key={line.id}>
-                  <td style={{ padding: '6px 3px', borderBottom: '1px solid #e5e7eb', verticalAlign: 'top' }}>
+                  <td style={{ padding: '4px 2px', borderBottom: '1px solid #e5e7eb', verticalAlign: 'top', wordBreak: 'break-word' }}>
                     {line.item_name || line.item?.name || `Item #${line.id}`}
                   </td>
-                  <td style={{ padding: '6px 3px', borderBottom: '1px solid #e5e7eb', verticalAlign: 'top', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  <td style={{ padding: '4px 2px', borderBottom: '1px solid #e5e7eb', verticalAlign: 'top', textAlign: 'right', whiteSpace: 'nowrap' }}>
                     {quantityLabel(line)}
                   </td>
-                  <td style={{ padding: '6px 3px', borderBottom: '1px solid #e5e7eb', verticalAlign: 'top', textAlign: 'right' }}>
+                  <td style={{ padding: '4px 2px', borderBottom: '1px solid #e5e7eb', verticalAlign: 'top', textAlign: 'right', whiteSpace: 'nowrap' }}>
                     {formatPlain(line.unit_price)}
                   </td>
-                  <td style={{ padding: '6px 3px', borderBottom: '1px solid #e5e7eb', verticalAlign: 'top', textAlign: 'right' }}>
+                  <td style={{ padding: '4px 2px', borderBottom: '1px solid #e5e7eb', verticalAlign: 'top', textAlign: 'right', whiteSpace: 'nowrap' }}>
                     {formatPlain(line.total)}
                   </td>
                 </tr>
