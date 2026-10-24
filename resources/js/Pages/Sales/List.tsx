@@ -7,7 +7,7 @@ import { ConfirmDialog } from '@/components/Layout';
 import { RecordModal, SaleForm } from '@/components/Records';
 import { Pagination } from '@/components/ui/Pagination';
 import { groupByDate, formatDateLabel } from '@/lib/groupByDate';
-import { TrashIcon, PencilSquareIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { TrashIcon, PencilSquareIcon, CheckIcon, XMarkIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 
 interface SaleLine {
   id: number;
@@ -107,6 +107,9 @@ export default function SaleList() {
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [editing, setEditing] = useState<EditState | null>(null);
   const [showSaleForm, setShowSaleForm] = useState(false);
+  const [receiptSaleId, setReceiptSaleId] = useState<number | null>(null);
+  const [customerName, setCustomerName] = useState('');
+  const [downloadingReceiptId, setDownloadingReceiptId] = useState<number | null>(null);
 
   const params: Record<string, string | number> = { page };
   if (search) params.search = search;
@@ -186,6 +189,32 @@ export default function SaleList() {
   const saveEdit = () => {
     if (editing) {
       updateMutation.mutate(editing);
+    }
+  };
+
+  const downloadReceipt = async (saleId: number, customerName: string) => {
+    setDownloadingReceiptId(saleId);
+
+    try {
+      const name = customerName.trim();
+
+      const blob = await api.get<Blob, Blob>(`/sales/${saleId}/receipt`, {
+        responseType: 'blob',
+        params: name === '' ? {} : { customer_name: name },
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `receipt-sale-${saleId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setReceiptSaleId(null);
+    } catch {
+      toast.error('Failed to download receipt');
+    } finally {
+      setDownloadingReceiptId(null);
     }
   };
 
@@ -357,6 +386,18 @@ export default function SaleList() {
                                     </button>
                                   )}
                                 </div>
+                                <button
+                                  onClick={() => {
+                                    setCustomerName('');
+                                    setReceiptSaleId(sale.id);
+                                  }}
+                                  className='btn alt sm mt-2 inline-flex items-center gap-1'
+                                  title='Download receipt'
+                                  aria-label='Download receipt'
+                                >
+                                  <ArrowDownTrayIcon className='h-4 w-4' />
+                                  Receipt
+                                </button>
                               </div>
                             </td>
                           )}
@@ -469,6 +510,47 @@ export default function SaleList() {
         confirmText='Delete'
         variant='danger'
       />
+
+      <RecordModal
+        isOpen={receiptSaleId !== null}
+        title='Download receipt'
+        onClose={() => setReceiptSaleId(null)}
+      >
+        <form
+          onSubmit={(event: FormEvent) => {
+            event.preventDefault();
+            if (receiptSaleId !== null) {
+              downloadReceipt(receiptSaleId, customerName);
+            }
+          }}
+          className='space-y-4'
+        >
+          <label>
+            <span>Customer name (optional)</span>
+            <input
+              type='text'
+              value={customerName}
+              onChange={(event) => setCustomerName(event.target.value)}
+              maxLength={120}
+              placeholder='e.g. Ada Obi'
+            />
+          </label>
+
+          <div className='flex justify-end gap-2'>
+            <button
+              type='button'
+              onClick={() => setReceiptSaleId(null)}
+              disabled={downloadingReceiptId !== null}
+              className='btn alt'
+            >
+              Cancel
+            </button>
+            <button type='submit' disabled={downloadingReceiptId !== null} className='btn'>
+              {downloadingReceiptId !== null ? 'Downloading...' : 'Download'}
+            </button>
+          </div>
+        </form>
+      </RecordModal>
 
       <RecordModal
         isOpen={showSaleForm}
