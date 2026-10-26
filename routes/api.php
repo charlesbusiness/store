@@ -48,6 +48,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/sales/{sale}', [SaleController::class, 'show']);
     Route::get('/sales/{sale}/receipt', [ReceiptController::class, 'download'])->name('sales.receipt');
     Route::get('/sales/{sale}/receipt-link', [ReceiptController::class, 'shareLink'])->name('sales.receipt-link');
+    Route::patch('/sales/{sale}/customer', [SaleController::class, 'updateCustomer']);
     Route::delete('/sales/{sale}', [SaleController::class, 'destroy']);
     Route::delete('/sales/{sale}/lines/{line}', [SaleController::class, 'destroyLine']);
     Route::patch('/sales/{sale}/lines/{line}', [SaleController::class, 'updateLine']);

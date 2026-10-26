@@ -15,6 +15,7 @@ interface SaleLine {
 
 interface Sale {
   id: number;
+  customer_name?: string | null;
   transacted_on: string;
   total: number;
   lines: SaleLine[];
@@ -22,7 +23,6 @@ interface Sale {
 
 interface SaleReceiptPreviewProps {
   sale: Sale;
-  customerName?: string;
 }
 
 function formatPlain(value: number): string {
@@ -41,8 +41,8 @@ function quantityLabel(line: SaleLine): string {
 }
 
 export const SaleReceiptPreview = forwardRef<HTMLDivElement, SaleReceiptPreviewProps>(
-  function SaleReceiptPreview({ sale, customerName }, ref) {
-    const name = customerName?.trim() || '';
+  function SaleReceiptPreview({ sale }, ref) {
+    const name = sale.customer_name?.trim() || '';
     const date = formatDate(sale.transacted_on);
 
     return (

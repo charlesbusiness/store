@@ -12,6 +12,10 @@ interface SaleFormProps {
     onCancel?: () => void;
 }
 
+interface SalePayload extends PurchasePayload {
+    customer_name: string | null;
+}
+
 export function SaleForm({ onSaved, onCancel }: SaleFormProps) {
     const queryClient = useQueryClient();
 
@@ -23,14 +27,16 @@ export function SaleForm({ onSaved, onCancel }: SaleFormProps) {
     const config = data?.data ?? null;
     const model = useRecordFormModel(config);
 
+    const [customerName, setCustomerName] = useState('');
     const [status, setStatus] = useState<string | null>(null);
     const [errors, setErrors] = useState<string[]>([]);
 
     const createMutation = useMutation({
-        mutationFn: (payload: PurchasePayload) => api.post('/sales', payload),
+        mutationFn: (payload: SalePayload) => api.post('/sales', payload),
         onSuccess: (response: any) => {
             const message = response?.message ?? 'Sale recorded.';
             setErrors([]);
+            setCustomerName('');
             model?.reset();
             // Stock is drawn down, so the ledger, the sellable list and every
             // form that reads them have to move too.
@@ -58,7 +64,10 @@ export function SaleForm({ onSaved, onCancel }: SaleFormProps) {
     const handleSubmit = (event: FormEvent) => {
         event.preventDefault();
         if (!model || model.lines.length === 0) return;
-        createMutation.mutate(model.payload());
+        createMutation.mutate({
+            ...model.payload(),
+            customer_name: customerName.trim() === '' ? null : customerName.trim(),
+        });
     };
 
     if (isLoading || !model) {
@@ -94,6 +103,20 @@ export function SaleForm({ onSaved, onCancel }: SaleFormProps) {
                         <div className="e">No stock available. Record a purchase first.</div>
                     ) : (
                         <div className="form-rows">
+                            <div className="form-row" style={{ gridTemplateColumns: '1fr' }}>
+                                <label className="form-field">
+                                    Customer name (optional)
+                                    <input
+                                        type="text"
+                                        name="customer_name"
+                                        value={customerName}
+                                        onChange={(event) => setCustomerName(event.target.value)}
+                                        maxLength={120}
+                                        placeholder="e.g. Ada Obi"
+                                    />
+                                </label>
+                            </div>
+
                             <div className="form-row">
                                 <label className="form-field searchable-select-field">
                                     Item

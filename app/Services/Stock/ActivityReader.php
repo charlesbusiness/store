@@ -88,8 +88,7 @@ class ActivityReader extends Service
         ?CarbonImmutable $dateFrom = null,
         ?CarbonImmutable $dateTo = null,
         ?bool $paid = null
-    ): EloquentCollection
-    {
+    ): EloquentCollection {
         $limit ??= (int) config('stockly.recent_limit', 8);
 
         return $this->applyFilters(
@@ -133,7 +132,7 @@ class ActivityReader extends Service
             $this->parseDate($dateTo),
             $paid,
         )
-            ->with(['lines.item', 'lines.unit'])
+            ->with(['customerName', 'lines.item', 'lines.unit'])
             ->orderByDesc('transacted_on')
             ->orderByDesc('id')
             ->paginate($perPage);

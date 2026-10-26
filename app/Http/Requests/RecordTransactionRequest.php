@@ -64,6 +64,7 @@ class RecordTransactionRequest extends FormRequest
             $rules['lines.*.unit_price'] = ['required', 'numeric', 'min:0', 'max:999999999'];
             // unit_cost is optional for sales (read-only display from ledger)
             $rules['lines.*.unit_cost'] = ['nullable', 'numeric', 'min:0'];
+            $rules['customer_name'] = ['nullable', 'string', 'max:120'];
         }
 
         return $rules;
@@ -78,7 +79,7 @@ class RecordTransactionRequest extends FormRequest
     private function packRules(): array
     {
         return [
-            'lines.*.inner_units' => ['nullable', 'array', 'max:' . self::MAX_INNER_UNITS],
+            'lines.*.inner_units' => ['nullable', 'array', 'max:'.self::MAX_INNER_UNITS],
             'lines.*.inner_units.*.unit' => [
                 'nullable', 'string', Rule::exists('units', 'code')->where('is_active', true),
             ],
@@ -116,6 +117,7 @@ class RecordTransactionRequest extends FormRequest
     {
         return [
             'transacted_on' => 'date',
+            'customer_name' => 'customer name',
             'lines.*.unit_code' => 'unit',
             'lines.*.unit_price' => 'selling price per unit',
             'lines.*.unit_cost' => 'cost per unit',
@@ -131,7 +133,7 @@ class RecordTransactionRequest extends FormRequest
     /**
      * The payload the record writer expects.
      *
-     * @return array{transacted_on: string, lines: array<int, array<string, mixed>>}
+     * @return array{transacted_on: string, customer_name: string|null, lines: array<int, array<string, mixed>>}
      */
     public function payload(): array
     {
@@ -139,6 +141,7 @@ class RecordTransactionRequest extends FormRequest
 
         return [
             'transacted_on' => $this->date('transacted_on')->toDateString(),
+            'customer_name' => $isPurchase ? null : $this->customerName(),
             'lines' => array_map(
                 fn (array $line) => [
                     'item_id' => $line['item_id'] ?? null,
@@ -157,6 +160,13 @@ class RecordTransactionRequest extends FormRequest
                 $this->validated('lines') ?? []
             ),
         ];
+    }
+
+    private function customerName(): ?string
+    {
+        $name = trim((string) ($this->validated('customer_name') ?? ''));
+
+        return $name === '' ? null : $name;
     }
 
     /**

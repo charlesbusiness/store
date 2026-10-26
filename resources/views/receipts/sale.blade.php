@@ -54,10 +54,10 @@
     <p class="title">Sales Receipt</p>
 
     <table class="meta">
-      @if (filled($customerName ?? null))
+      @if (filled($sale->customerName?->name))
         <tr>
           <td class="label">Customer</td>
-          <td class="value">{{ $customerName }}</td>
+          <td class="value">{{ $sale->customerName->name }}</td>
         </tr>
       @endif
       <tr>

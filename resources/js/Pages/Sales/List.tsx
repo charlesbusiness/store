@@ -32,6 +32,7 @@ interface SaleLine {
 
 interface Sale {
   id: number;
+  customer_name?: string | null;
   transacted_on: string;
   total: number;
   cost?: number | null;
@@ -69,6 +70,11 @@ interface EditState {
   lineId: number;
   qty: string;
   unitPrice: string;
+}
+
+interface CustomerEditState {
+  saleId: number;
+  value: string;
 }
 
 function money(value: number): string {
@@ -115,9 +121,9 @@ export default function SaleList() {
   const [filterForm, setFilterForm] = useState({ search, dateFrom, dateTo, status });
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [editing, setEditing] = useState<EditState | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<CustomerEditState | null>(null);
   const [showSaleForm, setShowSaleForm] = useState(false);
   const [receiptSale, setReceiptSale] = useState<Sale | null>(null);
-  const [customerName, setCustomerName] = useState('');
   const [receiptFormat, setReceiptFormat] = useState<'pdf' | 'image'>('pdf');
   const [receiptBusy, setReceiptBusy] = useState(false);
   const receiptPreviewRef = useRef<HTMLDivElement | null>(null);
@@ -168,6 +174,26 @@ export default function SaleList() {
     },
   });
 
+  const customerMutation = useMutation({
+    mutationFn: ({ saleId, customerName }: { saleId: number; customerName: string }) =>
+      api.patch(`/sales/${saleId}/customer`, {
+        customer_name: customerName.trim() === '' ? null : customerName.trim(),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+      toast.success('Customer updated');
+      setEditingCustomer(null);
+    },
+    onError: (error: any) => {
+      const payload = error?.response?.data;
+      if (payload?.errors) {
+        toast.error(Object.values(payload.errors).flat().join(' '));
+      } else {
+        toast.error(payload?.message || 'Failed to update customer');
+      }
+    },
+  });
+
   const paidMutation = useMutation({
     mutationFn: (saleId: number) => api.patch(`/sales/${saleId}/paid`),
     onSuccess: () => {
@@ -203,16 +229,21 @@ export default function SaleList() {
     }
   };
 
-  const downloadReceiptPdf = async (saleId: number, name: string) => {
-    const customerName = name.trim();
-    const blob = await api.get<Blob, Blob>(`/sales/${saleId}/receipt`, {
+  const saveCustomer = () => {
+    if (editingCustomer) {
+      customerMutation.mutate({ saleId: editingCustomer.saleId, customerName: editingCustomer.value });
+    }
+  };
+
+  const downloadReceiptPdf = async (sale: Sale) => {
+    const blob = await api.get<Blob, Blob>(`/sales/${sale.id}/receipt`, {
       responseType: 'blob',
-      params: customerName === '' ? {} : { customer_name: customerName },
     });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    const safeName = customerName !== '' ? sanitizeFilename(`sales-${customerName}`) : `receipt-sale-${saleId}`;
+    const name = (sale.customer_name ?? '').trim();
+    const safeName = name !== '' ? sanitizeFilename(`sales-${name}`) : `receipt-sale-${sale.id}`;
     link.download = `${safeName}.pdf`;
     document.body.appendChild(link);
     link.click();
@@ -220,14 +251,14 @@ export default function SaleList() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  const downloadReceiptImage = async (saleId: number, customerName?: string) => {
+  const downloadReceiptImage = async (sale: Sale) => {
     const node = receiptPreviewRef.current;
     if (!node) throw new Error('preview not ready');
     const dataUrl = await toPng(node, { cacheBust: true, pixelRatio: 2 });
     const link = document.createElement('a');
     link.href = dataUrl;
-    const name = (customerName || '').trim();
-    const safeName = name !== '' ? sanitizeFilename(`sales-${name}`) : `receipt-sale-${saleId}`;
+    const name = (sale.customer_name ?? '').trim();
+    const safeName = name !== '' ? sanitizeFilename(`sales-${name}`) : `receipt-sale-${sale.id}`;
     link.download = `${safeName}.png`;
     document.body.appendChild(link);
     link.click();
@@ -238,11 +269,10 @@ export default function SaleList() {
     if (!receiptSale || receiptBusy) return;
     setReceiptBusy(true);
     try {
-      const name = customerName.trim();
       if (receiptFormat === 'pdf') {
-        await downloadReceiptPdf(receiptSale.id, name);
+        await downloadReceiptPdf(receiptSale);
       } else {
-        await downloadReceiptImage(receiptSale.id, name);
+        await downloadReceiptImage(receiptSale);
       }
       toast.success('Receipt downloaded');
     } catch {
@@ -255,7 +285,7 @@ export default function SaleList() {
   const handleShareReceipt = async () => {
     if (!receiptSale || receiptBusy) return;
     setReceiptBusy(true);
-    const name = customerName.trim();
+    const name = (receiptSale.customer_name ?? '').trim();
     const title = `Receipt #${receiptSale.id}`;
     const text = 'Your receipt';
 
@@ -277,7 +307,6 @@ export default function SaleList() {
       if (receiptFormat === 'pdf') {
         const blob = await api.get<Blob, Blob>(`/sales/${receiptSale.id}/receipt`, {
           responseType: 'blob',
-          params: name === '' ? {} : { customer_name: name },
         });
         const fileName = name !== '' ? sanitizeFilename(`sales-${name}`) + '.pdf' : `receipt-sale-${receiptSale.id}.pdf`;
         const file = new File([blob], fileName, { type: 'application/pdf' });
@@ -287,9 +316,7 @@ export default function SaleList() {
         }
       }
 
-      const response: any = await api.get(`/sales/${receiptSale.id}/receipt-link`, {
-        params: name === '' ? {} : { customer_name: name },
-      });
+      const response: any = await api.get(`/sales/${receiptSale.id}/receipt-link`);
       const url = response.url || response.data?.url;
       if (navigator.share) {
         try {
@@ -477,9 +504,61 @@ export default function SaleList() {
                                     </button>
                                   )}
                                 </div>
+                                <div className='mt-2 text-sm'>
+                                  {editingCustomer?.saleId === sale.id ? (
+                                    <div className='flex items-center gap-2'>
+                                      <span className='text-gray-600'>Customer</span>
+                                      <input
+                                        type='text'
+                                        value={editingCustomer.value}
+                                        onChange={(event) =>
+                                          setEditingCustomer({ ...editingCustomer, value: event.target.value })
+                                        }
+                                        maxLength={120}
+                                        placeholder='e.g. Ada Obi'
+                                        className='w-40 rounded border border-gray-300 px-2 py-1'
+                                      />
+                                      <button
+                                        onClick={saveCustomer}
+                                        disabled={customerMutation.isPending}
+                                        className='btn sm'
+                                        style={iconButtonStyle}
+                                        title='Save customer'
+                                        aria-label='Save customer'
+                                      >
+                                        <CheckIcon className='h-4 w-4' />
+                                      </button>
+                                      <button
+                                        onClick={() => setEditingCustomer(null)}
+                                        disabled={customerMutation.isPending}
+                                        className='btn alt sm'
+                                        style={iconButtonStyle}
+                                        title='Cancel customer edit'
+                                        aria-label='Cancel customer edit'
+                                      >
+                                        <XMarkIcon className='h-4 w-4' />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className='flex items-center gap-2'>
+                                      <span className='text-gray-600'>Customer:</span>
+                                      <span>{sale.customer_name || '—'}</span>
+                                      <button
+                                        onClick={() =>
+                                          setEditingCustomer({ saleId: sale.id, value: sale.customer_name ?? '' })
+                                        }
+                                        className='btn alt sm'
+                                        style={iconButtonStyle}
+                                        title='Edit customer'
+                                        aria-label='Edit customer'
+                                      >
+                                        <PencilSquareIcon className='h-4 w-4' />
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                                 <button
                                   onClick={() => {
-                                    setCustomerName('');
                                     setReceiptFormat('pdf');
                                     setReceiptSale(sale);
                                   }}
@@ -614,16 +693,9 @@ export default function SaleList() {
       >
         {receiptSale && (
           <div className='space-y-4'>
-            <label>
-              <span>Customer name (optional)</span>
-              <input
-                type='text'
-                value={customerName}
-                onChange={(event) => setCustomerName(event.target.value)}
-                maxLength={120}
-                placeholder='e.g. Ada Obi'
-              />
-            </label>
+            {receiptSale.customer_name && (
+              <p className='text-sm text-gray-600'>Customer: {receiptSale.customer_name}</p>
+            )}
 
             <div className='flex items-center justify-between'>
               <span className='text-sm text-gray-600'>Format</span>
@@ -646,7 +718,7 @@ export default function SaleList() {
             </div>
 
             <div className='flex justify-center overflow-auto rounded border border-gray-200 bg-gray-50 p-4'>
-              <SaleReceiptPreview ref={receiptPreviewRef} sale={receiptSale} customerName={customerName} />
+              <SaleReceiptPreview ref={receiptPreviewRef} sale={receiptSale} />
             </div>
 
             <div className='flex justify-end gap-2'>

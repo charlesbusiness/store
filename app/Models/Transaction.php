@@ -6,6 +6,7 @@ use App\Enums\RecordType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -16,6 +17,7 @@ use Illuminate\Support\Collection;
  * @property RecordType $type
  * @property Carbon $transacted_on
  * @property int|null $user_id
+ * @property-read CustomerName|null $customerName
  * @property-read Collection<int, TransactionLine> $lines
  * @property float $total
  * @property float|null $cost
@@ -41,6 +43,11 @@ class Transaction extends Model
         return $this->hasMany(TransactionLine::class);
     }
 
+    public function customerName(): HasOne
+    {
+        return $this->hasOne(CustomerName::class);
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -64,6 +71,7 @@ class Transaction extends Model
     public function getProfitAttribute(): ?float
     {
         $cost = $this->cost;
+
         return $cost === null ? null : $this->total - $cost;
     }
 

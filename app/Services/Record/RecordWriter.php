@@ -46,7 +46,7 @@ abstract class RecordWriter extends Service
     /**
      * Record a sale or purchase and return the stored transaction.
      *
-     * @param  array{transacted_on: string, lines: array<int, array<string, mixed>>}  $payload
+     * @param  array{transacted_on: string, customer_name?: string|null, lines: array<int, array<string, mixed>>}  $payload
      *
      * @throws ValidationException
      */
@@ -91,8 +91,20 @@ abstract class RecordWriter extends Service
                 ]);
             }
 
+            $this->afterRecording($transaction, $payload);
+
             return $transaction->load('lines');
         });
+    }
+
+    /**
+     * Extra header records a subtype owns, written inside the same transaction.
+     *
+     * @param  array{transacted_on: string, customer_name?: string|null, lines: array<int, array<string, mixed>>}  $payload
+     */
+    protected function afterRecording(Transaction $transaction, array $payload): void
+    {
+        //
     }
 
     /**

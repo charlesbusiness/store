@@ -4,6 +4,7 @@ namespace App\Services\Record;
 
 use App\Enums\RecordType;
 use App\Models\Item;
+use App\Models\Transaction;
 use App\Models\Unit;
 use App\Services\Stock\AvailabilityChecker;
 use App\Services\Stock\CostCalculator;
@@ -32,6 +33,23 @@ class SaleRecorder extends RecordWriter
     public function type(): RecordType
     {
         return RecordType::Sale;
+    }
+
+    /**
+     * Keep the optional customer name with the sale itself, inside the same
+     * write transaction as the lines.
+     *
+     * @param  array{transacted_on: string, customer_name?: string|null, lines: array<int, array<string, mixed>>}  $payload
+     */
+    protected function afterRecording(Transaction $transaction, array $payload): void
+    {
+        $name = trim((string) ($payload['customer_name'] ?? ''));
+
+        if ($name === '') {
+            return;
+        }
+
+        $transaction->customerName()->create(['name' => $name]);
     }
 
     /**
@@ -148,5 +166,4 @@ class SaleRecorder extends RecordWriter
             $item->displayUnit->quantityLabel($this->availability->inDisplayUnits($item, $missing))
         );
     }
-
-    }
+}

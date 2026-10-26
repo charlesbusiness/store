@@ -13,12 +13,17 @@ class SaleReceiptTest extends TestCase
         $this->seedUnits();
     }
 
-    private function sale(string $date = '2026-10-24'): Transaction
+    private function sale(string $date = '2026-10-24', ?string $customerName = null): Transaction
     {
         $item = $this->item('Yam');
         $line = $this->recordLine($item, 'sale', 2, 'bag', 5000, $date);
+        $sale = $line->transaction()->firstOrFail();
 
-        return $line->transaction()->firstOrFail();
+        if ($customerName !== null) {
+            $sale->customerName()->create(['name' => $customerName]);
+        }
+
+        return $sale;
     }
 
     public function test_a_sale_receipt_downloads_as_a_pdf(): void
@@ -55,53 +60,40 @@ class SaleReceiptTest extends TestCase
         $this->assertStringNotContainsString('Profit', $html);
     }
 
-    public function test_the_receipt_includes_the_customer_name_when_supplied(): void
+    public function test_the_receipt_includes_the_stored_customer_name(): void
     {
-        $sale = $this->sale()->load(['lines.item', 'lines.unit']);
+        $sale = $this->sale(customerName: 'Ada Obi')->load(['customerName', 'lines.item', 'lines.unit']);
 
         $html = view('receipts.sale', [
             'sale' => $sale,
-            'customerName' => 'Ada Obi',
         ])->render();
 
         $this->assertStringContainsString('<td class="label">Customer</td>', $html);
         $this->assertStringContainsString('Ada Obi', $html);
     }
 
-    public function test_the_receipt_omits_the_customer_row_when_no_name_is_supplied(): void
+    public function test_the_receipt_omits_the_customer_row_when_the_sale_has_no_name(): void
     {
-        $sale = $this->sale()->load(['lines.item', 'lines.unit']);
+        $sale = $this->sale()->load(['customerName', 'lines.item', 'lines.unit']);
 
         $html = view('receipts.sale', [
             'sale' => $sale,
-            'customerName' => '',
         ])->render();
 
         $this->assertStringNotContainsString('<td class="label">Customer</td>', $html);
     }
 
-    public function test_a_customer_name_can_be_passed_to_the_download(): void
+    public function test_the_download_uses_the_stored_customer_name_and_ignores_a_request_override(): void
     {
         $this->actingAs($this->user());
 
-        $sale = $this->sale();
+        $sale = $this->sale(customerName: 'Ada Obi');
 
-        $response = $this->get("/api/sales/{$sale->id}/receipt?customer_name=Ada%20Obi");
+        $response = $this->get("/api/sales/{$sale->id}/receipt?customer_name=Grace%20Eze");
 
         $response->assertOk();
         $response->assertHeader('content-type', 'application/pdf');
-        $response->assertDownload("sales-Ada Obi.pdf");
-    }
-
-    public function test_a_customer_name_is_limited_to_a_sensible_length(): void
-    {
-        $this->actingAs($this->user());
-
-        $sale = $this->sale();
-
-        $this->getJson("/api/sales/{$sale->id}/receipt?customer_name=".str_repeat('a', 121))
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['customer_name']);
+        $response->assertDownload('sales-Ada Obi.pdf');
     }
 
     public function test_a_receipt_requires_authentication(): void
@@ -136,17 +128,16 @@ class SaleReceiptTest extends TestCase
         $this->assertStringContainsString('signature=', $response->json('url'));
     }
 
-    public function test_a_receipt_share_link_can_include_a_customer_name(): void
+    public function test_a_receipt_share_link_does_not_carry_a_customer_name(): void
     {
         $this->actingAs($this->user());
 
-        $sale = $this->sale();
+        $sale = $this->sale(customerName: 'Ada Obi');
 
-        $response = $this->getJson("/api/sales/{$sale->id}/receipt-link?customer_name=Ada%20Obi");
+        $response = $this->getJson("/api/sales/{$sale->id}/receipt-link");
 
         $response->assertOk();
-        $url = $response->json('url');
-        $this->assertStringContainsString('customer_name=', $url);
+        $this->assertStringNotContainsString('customer_name=', $response->json('url'));
     }
 
     public function test_a_public_signed_receipt_link_opens_the_pdf(): void

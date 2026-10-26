@@ -5,16 +5,13 @@ namespace App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * Validates the optional customer name printed on a sale receipt.
- *
- * A name is never stored: it is supplied for one download or share and only
- * affects the generated document.
+ * Validates a correction to the optional customer named on a sale.
  */
-class ReceiptRequest extends FormRequest
+class UpdateSaleCustomerRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user() !== null;
     }
 
     /**
@@ -35,5 +32,12 @@ class ReceiptRequest extends FormRequest
         return [
             'customer_name' => 'customer name',
         ];
+    }
+
+    public function customerName(): ?string
+    {
+        $name = trim((string) ($this->validated('customer_name') ?? ''));
+
+        return $name === '' ? null : $name;
     }
 }

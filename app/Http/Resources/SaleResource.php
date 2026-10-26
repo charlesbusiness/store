@@ -2,7 +2,6 @@
 
 namespace App\Http\Resources;
 
-use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class SaleResource extends JsonResource
@@ -11,6 +10,7 @@ class SaleResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'customer_name' => $this->customerName?->name,
             'transacted_on' => $this->transacted_on?->toDateString(),
             'total' => (float) $this->total,
             'cost' => $this->cost ? (float) $this->cost : null,

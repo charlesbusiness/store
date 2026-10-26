@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\ReceiptRequest;
 use App\Models\Transaction;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Barryvdh\DomPDF\PDF as DomPdf;
@@ -19,14 +18,14 @@ use Illuminate\Support\Facades\URL;
  */
 class ReceiptController extends Controller
 {
-    public function download(ReceiptRequest $request, Transaction $sale): Response
+    public function download(Transaction $sale): Response
     {
-        $customerName = $this->customerName($request);
+        $customerName = $this->customerName($sale);
         $filename = $customerName !== ''
             ? $this->safeReceiptFilename('sales-'.$customerName)
             : "receipt-sale-{$sale->id}";
 
-        return $this->render($sale, $customerName)
+        return $this->render($sale)
             ->download($filename.'.pdf');
     }
 
@@ -41,22 +40,15 @@ class ReceiptController extends Controller
         return mb_substr($name, 0, 80);
     }
 
-    public function show(ReceiptRequest $request, Transaction $sale): Response
+    public function show(Transaction $sale): Response
     {
-        return $this->render($sale, $this->customerName($request))
+        return $this->render($sale)
             ->stream("receipt-sale-{$sale->id}.pdf");
     }
 
-    public function shareLink(ReceiptRequest $request, Transaction $sale): JsonResponse
+    public function shareLink(Transaction $sale): JsonResponse
     {
         $this->ensureSale($sale);
-
-        $customerName = $this->customerName($request);
-
-        $params = ['sale' => $sale->id];
-        if ($customerName !== '') {
-            $params['customer_name'] = $customerName;
-        }
 
         $expiresIn = max(1, (int) config('stockly.receipt_share_days', 30));
 
@@ -64,26 +56,25 @@ class ReceiptController extends Controller
             'url' => URL::temporarySignedRoute(
                 'receipts.public',
                 now()->addDays($expiresIn),
-                $params,
+                ['sale' => $sale->id],
             ),
         ]);
     }
 
-    private function render(Transaction $sale, string $customerName): DomPdf
+    private function render(Transaction $sale): DomPdf
     {
         $this->ensureSale($sale);
 
-        $sale->load(['lines.item', 'lines.unit']);
+        $sale->load(['customerName', 'lines.item', 'lines.unit']);
 
         return Pdf::loadView('receipts.sale', [
             'sale' => $sale,
-            'customerName' => $customerName,
         ])->setPaper('a5');
     }
 
-    private function customerName(ReceiptRequest $request): string
+    private function customerName(Transaction $sale): string
     {
-        return trim((string) ($request->validated('customer_name') ?? ''));
+        return trim((string) ($sale->customerName?->name ?? ''));
     }
 
     private function ensureSale(Transaction $sale): void

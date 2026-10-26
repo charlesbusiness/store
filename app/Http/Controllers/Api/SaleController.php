@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\RecordType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RecordTransactionRequest;
+use App\Http\Requests\UpdateSaleCustomerRequest;
 use App\Http\Requests\UpdateSaleLineRequest;
 use App\Http\Resources\SaleResource;
 use App\Models\Item;
@@ -85,7 +86,7 @@ class SaleController extends Controller
     public function store(RecordTransactionRequest $request): JsonResponse
     {
         $sale = app(SaleRecorder::class)->record($request->payload(), $request->user());
-        $sale->load('lines.item', 'lines.unit');
+        $sale->load('customerName', 'lines.item', 'lines.unit');
 
         return response()->json([
             'data' => new SaleResource($sale),
@@ -100,9 +101,29 @@ class SaleController extends Controller
 
     public function show(Transaction $sale): JsonResponse
     {
-        $sale->load(['lines.item', 'lines.unit']);
+        $sale->load(['customerName', 'lines.item', 'lines.unit']);
 
         return response()->json(['data' => new SaleResource($sale)]);
+    }
+
+    public function updateCustomer(UpdateSaleCustomerRequest $request, Transaction $sale): JsonResponse
+    {
+        abort_unless($sale->isSale(), 404);
+
+        $name = $request->customerName();
+
+        if ($name === null) {
+            $sale->customerName()->delete();
+        } else {
+            $sale->customerName()->updateOrCreate([], ['name' => $name]);
+        }
+
+        $sale->load(['customerName', 'lines.item', 'lines.unit']);
+
+        return response()->json([
+            'data' => new SaleResource($sale),
+            'message' => 'Customer updated.',
+        ]);
     }
 
     public function destroy(Transaction $sale): JsonResponse
@@ -195,7 +216,7 @@ class SaleController extends Controller
             ]);
         });
 
-        $sale->load(['lines.item', 'lines.unit']);
+        $sale->load(['customerName', 'lines.item', 'lines.unit']);
 
         return response()->json([
             'data' => new SaleResource($sale),
