@@ -362,6 +362,7 @@ tr:last-child td {
 }
 
 .kp > div {
+  min-width: 0;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -377,6 +378,7 @@ tr:last-child td {
   display: block;
   font-size: 22px;
   letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
 }
 
 .seg {
