@@ -68,21 +68,31 @@ class StockLedgerTest extends TestCase
         $this->assertSame(0.0, $position->stockValue());
     }
 
-    public function test_deleting_a_line_adjusts_stock_without_reconciliation(): void
+    public function test_a_never_purchased_item_costs_nothing_rather_than_costing_zero(): void
     {
-        $item = $this->item('Rice', 'count', 'bag');
-        $line = $this->recordLine($item, 'purchase', 10, 'bag', 25000);
+        // Nothing has ever been bought, so there is no average to divide by. Null
+        // is the only honest answer: zero would value the goods as free and turn
+        // any sale of them into pure profit.
+        $position = $this->ledger()->position($this->item('Ghost'));
 
-        $this->actingAs($this->user());
+        $this->assertSame(0.0, $position->bought);
+        $this->assertNull($position->costOf(10));
+        $this->assertSame(0.0, $position->costPerDisplayUnit());
+    }
 
-        $this->assertSame(10.0, $this->ledger()->position($item)->stock());
+    public function test_the_cost_of_a_line_is_the_average_per_base_unit(): void
+    {
+        // 10 bags for 1500 is 150 a bag. Asked in base units rather than trading
+        // units, so the conversion the browser does is covered too.
+        $item = $this->item('Yam', 'count', 'bag');
+        $this->recordLine($item, 'purchase', 10, 'bag', 1500);
 
-        $this->delete(route('records.lines.destroy', $line))->assertRedirect();
+        $position = $this->ledger()->position($item);
 
-        $this->assertSame(0.0, $this->ledger()->position($item)->stock());
-
-        // A transaction with nothing left in it goes too.
-        $this->assertSame(0, $item->transactions()->count());
+        $this->assertEqualsWithDelta(150.0, $position->averageCost(), 0.001, '1500 paid over 10 received');
+        $this->assertEqualsWithDelta(1500.0, $position->costOf(10), 0.001, 'all ten, at 150 each');
+        $this->assertEqualsWithDelta(375.0, $position->costOf(2.5), 0.001, 'a part of them scales the same way');
+        $this->assertEqualsWithDelta(150.0, $position->costPerDisplayUnit(), 0.001);
     }
 
     public function test_the_total_values_each_position_in_its_own_family(): void

@@ -111,9 +111,9 @@ class ActivityReader extends Service
     /**
      * A page of transactions matching the buy-page filters, newest first.
      *
-     * The API list page uses this so it searches and paginates by exactly the
-     * rules the server-rendered recent table does: an item-name substring and an
-     * inclusive date window, both optional and both lenient about junk input.
+     * The list pages use this so they search and paginate by the same rules: an
+     * item-name substring and an inclusive date window, both optional and both
+     * lenient about junk input.
      *
      * @return LengthAwarePaginator<int, Transaction>
      */

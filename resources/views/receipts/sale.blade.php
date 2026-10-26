@@ -81,8 +81,8 @@
         <tr>
           <td>{{ $line->item?->name ?? 'Item #'.$line->item_id }}</td>
           <td class="r">{{ \App\Support\Concerns\FormatsValues::plain($line->qty, (int) config('stockly.quantity_decimals', 3)) }}</td>
-          <td class="r">@plain($line->unit_price, 2)</td>
-          <td class="r">@plain($line->total, 2)</td>
+          <td class="r">{{ \App\Support\Concerns\FormatsValues::plain($line->unit_price, 2) }}</td>
+          <td class="r">{{ \App\Support\Concerns\FormatsValues::plain($line->total, 2) }}</td>
         </tr>
       @empty
         <tr>
@@ -94,7 +94,7 @@
 
   <div class="total">
     <div class="label">Total Sales ({{ config('stockly.currency') }})</div>
-    <div class="value">@plain($sale->total(), 2)</div>
+    <div class="value">{{ \App\Support\Concerns\FormatsValues::plain($sale->total(), 2) }}</div>
   </div>
 
   <div class="footer">Thank you for your patronage.</div>

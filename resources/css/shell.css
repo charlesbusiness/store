@@ -150,9 +150,3 @@ nav a:hover:not(.on) {
 [hidden] {
   display: none !important;
 }
-
-/* Alpine elements are hidden until Alpine has initialised, so a staged cart
-   never flashes as an empty shell. */
-[x-cloak] {
-  display: none !important;
-}

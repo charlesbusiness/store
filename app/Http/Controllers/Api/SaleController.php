@@ -33,9 +33,9 @@ class SaleController extends Controller
     ) {}
 
     /**
-     * The line-item builder's configuration, identical to window.RecordForm on
-     * the server-rendered sell page: only what is in stock, each carrying the
-     * cost, the declared packs and the price it last went for.
+     * The line-item builder's configuration for the sell form: only what is in
+     * stock, each carrying the cost, the declared packs and the price it last
+     * went for.
      */
     public function form(): JsonResponse
     {
@@ -79,9 +79,8 @@ class SaleController extends Controller
     }
 
     /**
-     * Records a sale through the same writer the blade sell form uses, so the
-     * stock actually drawn is guarded and the cost is snapshotted on write
-     * rather than left blank.
+     * Records a sale through the shared recorder, so the stock actually drawn
+     * is guarded and the cost is snapshotted on write rather than left blank.
      */
     public function store(RecordTransactionRequest $request): JsonResponse
     {

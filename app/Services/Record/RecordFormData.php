@@ -41,9 +41,8 @@ class RecordFormData extends Service
     /**
      * Just the fields the line-item builder needs, without the recent ledger.
      *
-     * The API buy form fetches exactly this, so it receives the same config the
-     * server-rendered view is handed via window.RecordForm -- one shape, two
-     * front ends, no drift.
+     * The buy and sell forms fetch exactly this, so both front ends receive one
+     * shape and cannot drift.
      *
      * @return array<string, mixed>
      */

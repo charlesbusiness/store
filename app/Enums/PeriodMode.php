@@ -20,15 +20,6 @@ enum PeriodMode: string
         return self::Daily;
     }
 
-    public function label(): string
-    {
-        return match ($this) {
-            self::Daily => 'Daily',
-            self::Weekly => 'Weekly',
-            self::Monthly => 'Monthly',
-        };
-    }
-
     /** How many buckets the trend chart shows. */
     public function bucketCount(): int
     {
@@ -124,15 +115,5 @@ enum PeriodMode: string
             self::Monthly => $date->format('Y-m'),
             self::Weekly => $this->bucketStart($date)->format('Y-m-d'),
         };
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    public static function options(): array
-    {
-        return collect(self::cases())
-            ->mapWithKeys(fn (self $mode) => [$mode->value => $mode->label()])
-            ->all();
     }
 }

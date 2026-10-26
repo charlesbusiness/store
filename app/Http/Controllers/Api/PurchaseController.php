@@ -42,8 +42,7 @@ class PurchaseController extends Controller
     }
 
     /**
-     * The line-item builder's configuration, identical to window.RecordForm on
-     * the server-rendered buy page.
+     * The line-item builder's configuration for the buy form.
      */
     public function form(): JsonResponse
     {
@@ -51,8 +50,8 @@ class PurchaseController extends Controller
     }
 
     /**
-     * Records a purchase through the same writer the blade buy form uses, so a
-     * name nobody has bought before creates the item rather than being refused.
+     * Records a purchase through the shared recorder, so a name nobody has
+     * bought before creates the item rather than being refused.
      */
     public function store(RecordTransactionRequest $request): JsonResponse
     {

@@ -89,43 +89,4 @@ abstract class TestCase extends BaseTestCase
         ]);
     }
 
-    /**
-     * The payload a record form posts, for a purchase.
-     */
-    protected function purchasePayload(array $lines, ?string $date = null): array
-    {
-        return [
-            'transacted_on' => $date ?? Carbon::today()->toDateString(),
-            'lines' => $lines,
-        ];
-    }
-
-    /**
-     * The payload a record form posts, for a sale.
-     */
-    protected function salePayload(array $lines, ?string $date = null): array
-    {
-        return [
-            'transacted_on' => $date ?? Carbon::today()->toDateString(),
-            'lines' => $lines,
-        ];
-    }
-
-    /**
-     * The config a record page hands to Alpine, read back out of the rendered HTML.
-     *
-     * Asserting against the embedded JSON is what proves the browser can actually
-     * see a key -- a test that only checks the view compiles cannot tell a sent
-     * key from a dropped one.
-     *
-     * @return array<string, mixed>
-     */
-    protected function recordFormConfig(string $html): array
-    {
-        $matched = preg_match('/window\.RecordForm = (.*?);<\/script>/s', $html, $matches);
-
-        $this->assertSame(1, $matched, 'the record form config was not embedded');
-
-        return json_decode($matches[1], true, flags: JSON_THROW_ON_ERROR);
-    }
 }

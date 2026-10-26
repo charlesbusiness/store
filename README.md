@@ -8,19 +8,24 @@ movement — stock is never typed in by hand, it is what the ledger says it is.
 - **Items** and **Units** catalogues.
 - **Reports** for week, month, quarter and year.
 
-Laravel 12, PHP 8.2, SQLite. No Node build step: Blade, vendored Alpine.js and
-one stylesheet.
+Laravel 12 JSON API, PHP 8.2, SQLite, and a React 18 TypeScript SPA built with
+Vite and Tailwind.
 
 ## Getting started
 
 ```bash
 composer install
+npm install
 cp .env.example .env          # if you do not already have one
 php artisan key:generate
 touch database/database.sqlite
 php artisan migrate:fresh --seed
+npm run build
 php artisan serve
 ```
+
+For frontend development, run `npm run dev` alongside `php artisan serve`, or
+use `composer dev` to start the server, queue listener, logs, and Vite together.
 
 `--seed` loads the 93-unit catalogue, a demo ledger, and a `test@example.com`
 / `password` account for looking around.
@@ -76,19 +81,11 @@ composer test
 tests cannot connect to MySQL whatever `.env` says. Each test builds its own data
 on a throwaway in-memory database and never touches `database/database.sqlite`.
 
-Nine focused files, kept to one rule each: ledger maths, the buy/sell flow end to
-end (including the transaction rollback), what a pack makes a fraction, reports, the
-catalogue rules, the database reset guard, login, that every page renders, and that
-the views and the Alpine component agree on names. Where several tests were only
-reaching for the same rule from different angles, they are now one test that walks
-the whole rule.
-
-That last one exists because of its own bug. The Measurement dropdown rendered empty
-on both record tabs with a green suite: the view iterated a name the component never
-declared, so `x-for` iterated undefined. Checking the payload proves the server sent
-a key; checking the view renders proves the blade compiled. Neither can see that a
-template asks for something the browser cannot resolve — which is why the pair of
-tests now checks both ends.
+Six focused files, kept to one rule each: API authentication, API item rules, the
+signed receipt and PDF, report maths, stock/cost ledger maths, and the database
+reset guard. The suite no longer renders the removed server-side pages; frontend
+behaviour is checked by the TypeScript build and by exercising the SPA against the
+API.
 
 Two ideas carry the whole app.
 
@@ -151,29 +148,21 @@ Every form that asks for a unit therefore asks in two steps: pick the measuremen
 
 **An item's family is not stored from the form.** It is read off the unit the item
 is traded in, which closes a gap where `family = weight` and `unit = carton` could
-be submitted together and quietly disagree. The measurement box on the item form is
-a filter, not a source of truth: it carries no `name`, and the family always comes
-from the posted unit. It also means the unit box still works with JavaScript off,
-since the server-rendered optgroups are already grouped.
+be submitted together and quietly disagree. The measurement box in the SPA is a
+filter, not a source of truth: the API always derives the family from the posted
+unit, so a hand-rolled request cannot make the two disagree.
 
 ## Deleting asks first
 
 Deleting a ledger line is a one-click button next to a figure the trader just
-entered, and it moves stock. It confirms through a single `<dialog>` included once
-by the layout, rather than the browser's own `confirm()` box.
+entered, and it moves stock. The SPA routes it through the shared
+`ConfirmDialog` rather than the browser's own `confirm()` box.
 
-The dialog is native on purpose: focus trapping, Esc to cancel, an inert page behind
-it and focus returned to the button all come from the platform, so there is no
-dependency and nothing to keep in sync. The submit is *held* rather than cancelled,
-and replayed on accept — which deliberately bypasses validation and the submit
-event, and is also what stops it looping back into the handler. Cancel, Esc and the
-backdrop all abandon it. With JavaScript unavailable the inline `onsubmit` still
-fails open, exactly as it did before.
-
-The wording reaches the handler as a `data-confirm-text` attribute rather than an
-argument. Splicing a name into that inline call would mean an item called
-`O'Reilly` closed the JavaScript string early and killed the handler; as an
-attribute value, the apostrophe is just a character.
+The dialog closes on Escape or the backdrop and confirms on Enter or the action
+button. It pushes onto a small overlay stack so nested dialogs do not fight over
+keyboard handling, and the delete only happens after the API call succeeds. The
+lists then refetch the affected transactions, so the visible stock and totals are
+always derived from the server response.
 
 ## Frozen fields
 
@@ -192,36 +181,29 @@ touching what it already sold.
 ## Layout
 
 ```
-app/Services/Stock/    deriving stock, availability, activity
-app/Services/Record/   buying and selling, line normalisation
-app/Services/Report/   period maths, trend buckets, valuations
-app/Http/Requests/     the validation rules, including the frozen fields
-database/data/units/   the unit catalogue, one JSON file per family
-public/js/             stockly.js helpers (toast, theme, confirm dialog,
-                       unit picker), packs.js pack arithmetic,
-                       record-form.js the line builder
+app/Services/Stock/          deriving stock, availability, activity
+app/Services/Record/         buying and selling, line normalisation
+app/Services/Report/         period maths, trend buckets, valuations
+app/Http/Controllers/Api/    JSON endpoints used by the SPA
+app/Http/Requests/           the validation rules, including the frozen fields
+database/data/units/         the unit catalogue, one JSON file per family
+resources/js/                React SPA pages, components, hooks and line model
+resources/css/               shared Tailwind entry and design tokens
+resources/views/app.blade.php
+                             SPA shell loaded by the catch-all route
+resources/views/receipts/    server-rendered PDF receipt
 ```
 
-Routes are thin: controller → service → model. The interesting behaviour lives
-in the services, which is where the tests point.
+Routes are thin: API controller → service → model. The interesting behaviour
+lives in the services, which is where the tests point. `routes/web.php` only
+serves the SPA shell and the signed receipt link.
 
-### Script load order is load-bearing
+### Frontend build
 
-`alpine.min.js` normally calls `start()` from a `queueMicrotask` queued the
-instant it executes -- not on `DOMContentLoaded`. So anything an `x-data`
-expression needs **must already be defined** by the time Alpine scans the DOM.
-
-In `layouts/app.blade.php`, the local Alpine bundle is patched to honor
-`window.deferLoadingAlpine`. The layout captures that callback, waits for
-`packs.js`, `record-form.js` and `record-display.js` to mark themselves ready,
-then starts Alpine exactly once. Starting earlier makes `recordForm()` or its
-mixins unavailable while the form is parsed, and Alpine marks the nodes as
-initialised with an empty scope; the visible symptom is `ReferenceError` for
-bindings such as `lines`, `draft` or `totalProfitLabel`.
-
-There is no JS test runner in this project (no Node), so the startup contract is
-asserted by a PHP feature test and should still be re-checked in a browser if you
-touch the layout's script tags.
+The SPA is compiled by Vite into `public/build`, which Laravel serves through
+the `@vite` directive in `app.blade.php`. Run `npm run dev` while developing for
+hot reload, and `npm run build` before deploying. The build runs `tsc` first, so
+TypeScript errors fail the production build.
 
 ## Troubleshooting
 
@@ -252,16 +234,21 @@ php artisan tinker --execute="\App\Models\Unit::where('is_active', true)->get()-
 Run these commands after deploying to a new environment:
 
 ```bash
-# 1. Run migrations
+# 1. Install dependencies and build the SPA
+composer install --no-dev --optimize-autoloader
+npm ci
+npm run build
+
+# 2. Run migrations
 php artisan migrate --force
 
-# 2. Seed units catalogue (required for forms to work)
+# 3. Seed units catalogue (required for forms to work)
 php artisan db:seed --class=UnitSeeder --force
 
-# 3. (Optional) Seed demo data
+# 4. (Optional) Seed demo data
 php artisan db:seed --class=DemoLedgerSeeder --force
 
-# 4. Clear caches
+# 5. Clear caches
 php artisan config:clear
 php artisan route:clear
 php artisan view:clear

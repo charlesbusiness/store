@@ -5,8 +5,8 @@ interface PaginationProps {
 }
 
 /**
- * Prev / page numbers / Next, mirroring the server-rendered recent table which
- * lists every page. Kept dumb: it only asks the caller to move to a page.
+ * Prev / page numbers / Next for paginated lists. Kept dumb: it only asks the
+ * caller to move to a page.
  */
 export function Pagination({ page, lastPage, onPageChange }: PaginationProps) {
     if (lastPage <= 1) {

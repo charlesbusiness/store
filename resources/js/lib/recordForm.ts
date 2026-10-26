@@ -1,6 +1,6 @@
-/* Stockly -- the buy/sell line-item builder, ported from the Alpine modules in
- * public/js/record-form/*.js and public/js/packs/*.js so the React SPA previews
- * a line with exactly the arithmetic the server-rendered form used.
+/* Stockly -- the buy/sell line-item builder, ported from the original Alpine
+ * modules so the React SPA previews a line with exactly the arithmetic the
+ * server uses.
  *
  * The browser still only previews: the server recomputes every figure and has
  * the last word on stock and cost.
