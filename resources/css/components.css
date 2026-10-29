@@ -506,7 +506,10 @@ tr.draft td {
 
 /* Mobile: stack fields vertically */
 @media (max-width: 768px) {
-  .form-row {
+  .form-row,
+  .form-row.row-2-buy,
+  .form-row.row-2-sale,
+  .form-row.inner-unit-row {
     grid-template-columns: 1fr;
     gap: 8px;
     padding: 8px;
