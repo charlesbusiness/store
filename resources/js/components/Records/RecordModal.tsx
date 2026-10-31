@@ -7,6 +7,7 @@ interface RecordModalProps {
     title: string;
     onClose: () => void;
     children: ReactNode;
+    panelClassName?: string;
 }
 
 /**
@@ -14,7 +15,7 @@ interface RecordModalProps {
  * scrolling, traps focus inside the panel and closes on Escape or a backdrop
  * click.
  */
-export function RecordModal({ isOpen, title, onClose, children }: RecordModalProps) {
+export function RecordModal({ isOpen, title, onClose, children, panelClassName }: RecordModalProps) {
     const panelRef = useRef<HTMLDivElement | null>(null);
     const onCloseRef = useRef(onClose);
 
@@ -80,7 +81,7 @@ export function RecordModal({ isOpen, title, onClose, children }: RecordModalPro
             }}
         >
             <div
-                className="record-modal-panel"
+                className={'record-modal-panel' + (panelClassName ? ` ${panelClassName}` : '')}
                 role="dialog"
                 aria-modal="true"
                 aria-label={title}

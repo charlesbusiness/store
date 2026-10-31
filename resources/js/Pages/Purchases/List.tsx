@@ -7,7 +7,8 @@ import { ConfirmDialog } from '@/components/Layout';
 import { RecordModal, PurchaseForm } from '@/components/Records';
 import { Pagination } from '@/components/ui/Pagination';
 import { groupByDate, formatDateLabel } from '@/lib/groupByDate';
-import { TrashIcon, PencilSquareIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { TrashIcon, PencilSquareIcon, CheckIcon, XMarkIcon, CalculatorIcon } from '@heroicons/react/24/outline';
+import { Calculator } from '@/components/ui/Calculator';
 
 interface PurchaseLine {
   id: number;
@@ -93,6 +94,7 @@ export default function PurchaseList() {
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [editing, setEditing] = useState<EditState | null>(null);
   const [showPurchaseForm, setShowPurchaseForm] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
 
   const params: Record<string, string | number> = { page };
   if (search) params.search = search;
@@ -190,9 +192,18 @@ export default function PurchaseList() {
 
   return (
     <div className='p-6'>
-      <div className='flex justify-between items-center mb-6'>
+      <div className='flex flex-wrap justify-between items-center gap-2 mb-6'>
         <h1 className='text-2xl font-bold'>Purchases</h1>
-        <button onClick={() => setShowPurchaseForm(true)} className='btn'>+ New Purchase</button>
+        <div className='flex items-center gap-2'>
+          <button
+            onClick={() => setShowCalculator(true)}
+            className='btn alt inline-flex items-center gap-2'
+          >
+            <CalculatorIcon className='h-5 w-5' />
+            Calculator
+          </button>
+          <button onClick={() => setShowPurchaseForm(true)} className='btn'>+ New Purchase</button>
+        </div>
       </div>
 
       <form onSubmit={applyFilters} className='flex flex-wrap items-end gap-2 mb-3'>
@@ -406,6 +417,15 @@ export default function PurchaseList() {
         confirmText='Delete'
         variant='danger'
       />
+
+      <RecordModal
+        isOpen={showCalculator}
+        title='Calculator'
+        onClose={() => setShowCalculator(false)}
+        panelClassName='calc-panel'
+      >
+        <Calculator />
+      </RecordModal>
 
       <RecordModal
         isOpen={showPurchaseForm}

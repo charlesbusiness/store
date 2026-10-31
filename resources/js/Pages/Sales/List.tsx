@@ -7,7 +7,8 @@ import { ConfirmDialog } from '@/components/Layout';
 import { RecordModal, SaleForm } from '@/components/Records';
 import { Pagination } from '@/components/ui/Pagination';
 import { groupByDate, formatDateLabel } from '@/lib/groupByDate';
-import { TrashIcon, PencilSquareIcon, CheckIcon, XMarkIcon, ArrowDownTrayIcon, ShareIcon } from '@heroicons/react/24/outline';
+import { TrashIcon, PencilSquareIcon, CheckIcon, XMarkIcon, ArrowDownTrayIcon, ShareIcon, CalculatorIcon } from '@heroicons/react/24/outline';
+import { Calculator } from '@/components/ui/Calculator';
 import { SaleReceiptPreview } from '@/components/Records/SaleReceiptPreview';
 import { toPng } from 'html-to-image';
 import { useRef } from 'react';
@@ -123,6 +124,7 @@ export default function SaleList() {
   const [editing, setEditing] = useState<EditState | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<CustomerEditState | null>(null);
   const [showSaleForm, setShowSaleForm] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
   const [receiptSale, setReceiptSale] = useState<Sale | null>(null);
   const [receiptFormat, setReceiptFormat] = useState<'pdf' | 'image'>('pdf');
   const [receiptBusy, setReceiptBusy] = useState(false);
@@ -360,9 +362,18 @@ export default function SaleList() {
 
   return (
     <div className='p-6'>
-      <div className='flex justify-between items-center mb-6'>
+      <div className='flex flex-wrap justify-between items-center gap-2 mb-6'>
         <h1 className='text-2xl font-bold'>Sales</h1>
-        <button onClick={() => setShowSaleForm(true)} className='btn'>+ New Sale</button>
+        <div className='flex items-center gap-2'>
+          <button
+            onClick={() => setShowCalculator(true)}
+            className='btn alt inline-flex items-center gap-2'
+          >
+            <CalculatorIcon className='h-5 w-5' />
+            Calculator
+          </button>
+          <button onClick={() => setShowSaleForm(true)} className='btn'>+ New Sale</button>
+        </div>
       </div>
 
       <form onSubmit={applyFilters} className='flex flex-wrap items-end gap-2 mb-3'>
@@ -741,6 +752,15 @@ export default function SaleList() {
             </div>
           </div>
         )}
+      </RecordModal>
+
+      <RecordModal
+        isOpen={showCalculator}
+        title='Calculator'
+        onClose={() => setShowCalculator(false)}
+        panelClassName='calc-panel'
+      >
+        <Calculator />
       </RecordModal>
 
       <RecordModal
