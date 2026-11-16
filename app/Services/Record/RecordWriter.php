@@ -10,10 +10,10 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Services\Stock\AvailabilityChecker;
 use App\Support\Service;
+use App\Support\TenantContext;
 use Illuminate\Support\Collection as BaseCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
-use App\Support\TenantContext;
 
 /**
  * Shared machinery for recording a sale or a purchase.
@@ -79,26 +79,69 @@ abstract class RecordWriter extends Service
                 'user_id' => $user?->id,
             ]);
 
-            foreach ($lines as $line) {
-                TransactionLine::create([
-                    'transaction_id' => $transaction->id,
-                    'item_id' => $line['item']->id,
-                    'qty' => $line['qty'],
-                    'unit_code' => $line['unit']->code,
-                    'base_qty' => $line['base_qty'],
-                    'unit_price' => $line['unit_price'],
-                    'total' => $line['total'],
-                    'inner_units' => $line['inner_units'] ?: null,
-                    'unit_cost' => $line['unit_cost'] ?? null,
-                    'selling_price' => $line['selling_price'] ?? null,
-                    'cost' => $this->costFor($line),
-                ]);
-            }
+            $this->writeLines($transaction, $lines);
 
             $this->afterRecording($transaction, $payload);
 
             return $transaction->load('lines');
         });
+    }
+
+    /**
+     * Append lines to a transaction that already exists, through the same
+     * resolve/normalise/lock/guard path as record(). The header is left alone:
+     * its type, date and branch were fixed when it was first written, so the
+     * new line joins the group rather than starting a new one.
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     *
+     * @throws ValidationException
+     */
+    public function addLine(Transaction $transaction, array $rows): Transaction
+    {
+        $rows = array_values($rows);
+
+        if ($rows === []) {
+            throw ValidationException::withMessages(['lines' => 'Add at least one line.']);
+        }
+
+        return DB::transaction(function () use ($transaction, $rows) {
+            $resolved = $this->resolve($rows);
+            $lines = $this->normalizer->normalise($this->type(), $resolved->rows, $resolved->items);
+
+            $this->lockItems($lines);
+
+            // Re-checked under the lock: the form's own check may be minutes old.
+            $this->guard($lines);
+
+            $this->writeLines($transaction, $lines);
+
+            return $transaction->load('lines');
+        });
+    }
+
+    /**
+     * Persist normalised lines against a transaction header.
+     *
+     * @param  BaseCollection<int, array{item: Item, unit: Unit, qty: float, base_qty: float, unit_price: float, total: float, inner_units?: array|null, unit_cost?: float|null, selling_price?: float|null}>  $lines
+     */
+    protected function writeLines(Transaction $transaction, BaseCollection $lines): void
+    {
+        foreach ($lines as $line) {
+            TransactionLine::create([
+                'transaction_id' => $transaction->id,
+                'item_id' => $line['item']->id,
+                'qty' => $line['qty'],
+                'unit_code' => $line['unit']->code,
+                'base_qty' => $line['base_qty'],
+                'unit_price' => $line['unit_price'],
+                'total' => $line['total'],
+                'inner_units' => $line['inner_units'] ?: null,
+                'unit_cost' => $line['unit_cost'] ?? null,
+                'selling_price' => $line['selling_price'] ?? null,
+                'cost' => $this->costFor($line),
+            ]);
+        }
     }
 
     /**

@@ -2,16 +2,16 @@
 
 use App\Enums\RecordType;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\ItemController;
 use App\Http\Controllers\Api\PurchaseController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SaleController;
 use App\Http\Controllers\Api\StockController;
+use App\Http\Controllers\Api\StockTransferController;
+use App\Http\Controllers\Api\TenantController;
 use App\Http\Controllers\Api\UnitController;
 use App\Http\Controllers\Api\UploadController;
-use App\Http\Controllers\Api\TenantController;
-use App\Http\Controllers\Api\BranchController;
-use App\Http\Controllers\Api\StockTransferController;
 use App\Http\Controllers\ReceiptController;
 use Illuminate\Support\Facades\Route;
 
@@ -66,6 +66,7 @@ Route::middleware(['auth:sanctum', 'tenant.context'])->group(function () {
     Route::patch('/sales/{sale}/customer', [SaleController::class, 'updateCustomer']);
     Route::delete('/sales/{sale}', [SaleController::class, 'destroy']);
     Route::delete('/sales/{sale}/lines/{line}', [SaleController::class, 'destroyLine']);
+    Route::post('/sales/{sale}/lines', [SaleController::class, 'storeLine']);
     Route::patch('/sales/{sale}/lines/{line}', [SaleController::class, 'updateLine']);
     Route::patch('/sales/{sale}/paid', [SaleController::class, 'markPaid']);
 

@@ -7,7 +7,7 @@ import { ConfirmDialog } from '@/components/Layout';
 import { RecordModal, SaleForm } from '@/components/Records';
 import { Pagination } from '@/components/ui/Pagination';
 import { groupByDate, formatDateLabel } from '@/lib/groupByDate';
-import { TrashIcon, PencilSquareIcon, CheckIcon, XMarkIcon, ArrowDownTrayIcon, ShareIcon, CalculatorIcon } from '@heroicons/react/24/outline';
+import { TrashIcon, PencilSquareIcon, CheckIcon, XMarkIcon, ArrowDownTrayIcon, ShareIcon, CalculatorIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { Calculator } from '@/components/ui/Calculator';
 import { SaleReceiptPreview } from '@/components/Records/SaleReceiptPreview';
 import { toPng } from 'html-to-image';
@@ -124,6 +124,7 @@ export default function SaleList() {
   const [editing, setEditing] = useState<EditState | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<CustomerEditState | null>(null);
   const [showSaleForm, setShowSaleForm] = useState(false);
+  const [addLineSale, setAddLineSale] = useState<Sale | null>(null);
   const [showCalculator, setShowCalculator] = useState(false);
   const [receiptSale, setReceiptSale] = useState<Sale | null>(null);
   const [receiptFormat, setReceiptFormat] = useState<'pdf' | 'image'>('pdf');
@@ -568,18 +569,29 @@ export default function SaleList() {
                                     </div>
                                   )}
                                 </div>
-                                <button
-                                  onClick={() => {
-                                    setReceiptFormat('pdf');
-                                    setReceiptSale(sale);
-                                  }}
-                                  className='btn alt sm mt-2 inline-flex items-center gap-1'
-                                  title='Receipt'
-                                  aria-label='Receipt'
-                                >
-                                  <ArrowDownTrayIcon className='h-4 w-4' />
-                                  Receipt
-                                </button>
+                                <div className='sale-actions mt-2 flex flex-wrap items-center gap-2'>
+                                  <button
+                                    onClick={() => {
+                                      setReceiptFormat('pdf');
+                                      setReceiptSale(sale);
+                                    }}
+                                    className='btn alt sm inline-flex items-center gap-1'
+                                    title='Receipt'
+                                    aria-label='Receipt'
+                                  >
+                                    <ArrowDownTrayIcon className='h-4 w-4' />
+                                    Receipt
+                                  </button>
+                                  <button
+                                    onClick={() => setAddLineSale(sale)}
+                                    className='btn alt sm inline-flex items-center gap-1'
+                                    title='Add an item to this sale'
+                                    aria-label='Add item'
+                                  >
+                                    <PlusIcon className='h-4 w-4' />
+                                    Add item
+                                  </button>
+                                </div>
                               </div>
                             </td>
                           )}
@@ -775,6 +787,23 @@ export default function SaleList() {
             toast.success(message);
           }}
         />
+      </RecordModal>
+
+      <RecordModal
+        isOpen={addLineSale !== null}
+        title='Add item to sale'
+        onClose={() => setAddLineSale(null)}
+      >
+        {addLineSale && (
+          <SaleForm
+            appendToSaleId={addLineSale.id}
+            onCancel={() => setAddLineSale(null)}
+            onSaved={(message) => {
+              setAddLineSale(null);
+              toast.success(message);
+            }}
+          />
+        )}
       </RecordModal>
     </div>
   );

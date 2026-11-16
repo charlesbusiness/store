@@ -10,14 +10,21 @@ interface SaleFormProps {
     onSaved?: (message: string) => void;
     /** Called when the user backs out of the form. */
     onCancel?: () => void;
+    /**
+     * When set, the staged lines are appended to this existing sale instead of
+     * starting a new one. The customer and date fields are hidden, since the
+     * sale already carries them.
+     */
+    appendToSaleId?: number;
 }
 
 interface SalePayload extends PurchasePayload {
     customer_name: string | null;
 }
 
-export function SaleForm({ onSaved, onCancel }: SaleFormProps) {
+export function SaleForm({ onSaved, onCancel, appendToSaleId }: SaleFormProps) {
     const queryClient = useQueryClient();
+    const isAppend = appendToSaleId !== undefined;
 
     const { data, isLoading } = useQuery<{ data: RecordConfig }>({
         queryKey: ['record-form', 'sale'],
@@ -32,7 +39,10 @@ export function SaleForm({ onSaved, onCancel }: SaleFormProps) {
     const [errors, setErrors] = useState<string[]>([]);
 
     const createMutation = useMutation({
-        mutationFn: (payload: SalePayload) => api.post('/sales', payload),
+        mutationFn: (payload: SalePayload) =>
+            isAppend
+                ? api.post(`/sales/${appendToSaleId}/lines`, { lines: payload.lines })
+                : api.post('/sales', payload),
         onSuccess: (response: any) => {
             const message = response?.message ?? 'Sale recorded.';
             setErrors([]);
@@ -73,7 +83,7 @@ export function SaleForm({ onSaved, onCancel }: SaleFormProps) {
     if (isLoading || !model) {
         return (
             <div className="card">
-                <h2>Record a sale</h2>
+                <h2>{isAppend ? 'Add item to sale' : 'Record a sale'}</h2>
             </div>
         );
     }
@@ -103,19 +113,21 @@ export function SaleForm({ onSaved, onCancel }: SaleFormProps) {
                         <div className="e">No stock available. Record a purchase first.</div>
                     ) : (
                         <div className="form-rows">
-                            <div className="form-row" style={{ gridTemplateColumns: '1fr' }}>
-                                <label className="form-field">
-                                    Customer name (optional)
-                                    <input
-                                        type="text"
-                                        name="customer_name"
-                                        value={customerName}
-                                        onChange={(event) => setCustomerName(event.target.value)}
-                                        maxLength={120}
-                                        placeholder="e.g. Ada Obi"
-                                    />
-                                </label>
-                            </div>
+                            {!isAppend && (
+                                <div className="form-row" style={{ gridTemplateColumns: '1fr' }}>
+                                    <label className="form-field">
+                                        Customer name (optional)
+                                        <input
+                                            type="text"
+                                            name="customer_name"
+                                            value={customerName}
+                                            onChange={(event) => setCustomerName(event.target.value)}
+                                            maxLength={120}
+                                            placeholder="e.g. Ada Obi"
+                                        />
+                                    </label>
+                                </div>
+                            )}
 
                             <div className="form-row">
                                 <label className="form-field searchable-select-field">
@@ -132,16 +144,18 @@ export function SaleForm({ onSaved, onCancel }: SaleFormProps) {
                                     />
                                 </label>
 
-                                <label className="form-field">
-                                    Date
-                                    <input
-                                        type="date"
-                                        name="transacted_on"
-                                        value={model.date}
-                                        onChange={(event) => model.setDate(event.target.value)}
-                                        required
-                                    />
-                                </label>
+                                {!isAppend && (
+                                    <label className="form-field">
+                                        Date
+                                        <input
+                                            type="date"
+                                            name="transacted_on"
+                                            value={model.date}
+                                            onChange={(event) => model.setDate(event.target.value)}
+                                            required
+                                        />
+                                    </label>
+                                )}
 
                                 <label className="form-field">
                                     Measurement
@@ -242,7 +256,7 @@ export function SaleForm({ onSaved, onCancel }: SaleFormProps) {
                 {(model.lines.length > 0 || model.hasDraft) && (
                     <div className="card">
                         <div className="card-head">
-                            <h2>Current sale</h2>
+                            <h2>{isAppend ? 'Lines to add' : 'Current sale'}</h2>
                             <button type="button" className="btn alt sm" onClick={() => model.clear()}>
                                 Clear
                             </button>
@@ -347,7 +361,7 @@ export function SaleForm({ onSaved, onCancel }: SaleFormProps) {
                         type="submit"
                         disabled={model.lines.length === 0 || createMutation.isPending}
                     >
-                        Save sale
+                        {isAppend ? 'Add to sale' : 'Save sale'}
                     </button>
                     <span className="mut">{model.lines.length} line(s)</span>
                     {onCancel && (

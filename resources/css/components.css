@@ -532,6 +532,15 @@ tr.draft td {
   line-height: 1.3;
 }
 
+.sale-actions .btn {
+  background: var(--card);
+  border: 1px solid var(--mut);
+}
+
+.sale-actions .btn:hover {
+  background: var(--bg);
+}
+
 .totals-cell span {
   font-size: 12px;
 }

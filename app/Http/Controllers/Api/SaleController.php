@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\RecordType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RecordTransactionRequest;
+use App\Http\Requests\StoreSaleLineRequest;
 use App\Http\Requests\UpdateSaleCustomerRequest;
 use App\Http\Requests\UpdateSaleLineRequest;
 use App\Http\Resources\SaleResource;
@@ -17,12 +18,12 @@ use App\Services\Record\SaleRecorder;
 use App\Services\Stock\ActivityReader;
 use App\Services\Stock\AvailabilityChecker;
 use App\Support\Concerns\FormatsValues;
+use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
-use App\Support\TenantContext;
 
 class SaleController extends Controller
 {
@@ -162,6 +163,26 @@ class SaleController extends Controller
         $sale->update(['paid' => true]);
 
         return response()->json(['message' => 'Sale marked as paid']);
+    }
+
+    /**
+     * Append one or more lines to a sale that is already recorded, so a
+     * receipt can be completed after the fact. The lines go through the same
+     * recorder as a fresh sale, so the stock actually drawn is guarded and the
+     * cost is snapshotted on write.
+     */
+    public function storeLine(StoreSaleLineRequest $request, Transaction $sale): JsonResponse
+    {
+        abort_unless($sale->tenant_id === $this->context->tenantId(), 404);
+        abort_unless($sale->isSale(), 404);
+
+        app(SaleRecorder::class)->addLine($sale, $request->payload()['lines']);
+        $sale->load(['customerName', 'lines.item', 'lines.unit']);
+
+        return response()->json([
+            'data' => new SaleResource($sale),
+            'message' => 'Line added.',
+        ], 201);
     }
 
     /**
