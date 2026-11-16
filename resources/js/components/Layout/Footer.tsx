@@ -16,7 +16,6 @@ export function Footer() {
     return (
         <footer className="foot">
             <span>
-                <NavLink to="/items">Items</NavLink> &middot;
                 <NavLink to="/units">Units</NavLink>
             </span>
             <span>
