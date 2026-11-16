@@ -4,16 +4,16 @@ namespace App\Services\Record;
 
 use App\Enums\RecordType;
 use App\Models\Item;
-use App\Models\Transaction;
+use App\Models\LedgerEntry;
 use App\Models\Unit;
 use App\Services\Stock\AvailabilityChecker;
 use App\Services\Stock\CostCalculator;
 use App\Services\Stock\StockLedger;
+use App\Support\TenantContext;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Collection as BaseCollection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use App\Support\TenantContext;
 
 /**
  * Records a sale. Sales may only draw on stock that already exists, and may
@@ -43,7 +43,7 @@ class SaleRecorder extends RecordWriter
      *
      * @param  array{transacted_on: string, customer_name?: string|null, lines: array<int, array<string, mixed>>}  $payload
      */
-    protected function afterRecording(Transaction $transaction, array $payload): void
+    protected function afterRecording(LedgerEntry $transaction, array $payload): void
     {
         $name = trim((string) ($payload['customer_name'] ?? ''));
 

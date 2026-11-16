@@ -2,9 +2,8 @@
 
 namespace App\Services\Stock;
 
-use App\Enums\RecordType;
 use App\Models\Item;
-use App\Models\TransactionLine;
+use App\Models\PurchaseLine;
 use App\Models\Unit;
 use App\Support\Packs;
 use App\Support\TenantContext;
@@ -21,7 +20,7 @@ use Illuminate\Support\Collection;
  */
 class CostCalculator
 {
-    /** @var array<int, Collection<int, TransactionLine>> */
+    /** @var array<int, Collection<int, PurchaseLine>> */
     private array $purchaseLinesCache = [];
 
     /** @var array<int, Packs> */
@@ -273,7 +272,7 @@ class CostCalculator
      * fetched for the whole set in one query and memoised per item.
      *
      * @param  array<int, int>  $ids
-     * @return array<int, Collection<int, TransactionLine>> keyed by item id
+     * @return array<int, Collection<int, PurchaseLine>> keyed by item id
      */
     private function loadPurchaseLines(array $ids): array
     {
@@ -281,15 +280,14 @@ class CostCalculator
         $missing = array_values(array_filter($ids, fn (int $id): bool => ! array_key_exists($id, $this->purchaseLinesCache)));
 
         if ($missing !== []) {
-            $rows = TransactionLine::query()
-                ->join('transactions', 'transactions.id', '=', 'transaction_lines.transaction_id')
-                ->where('transactions.type', RecordType::Purchase->value)
-                ->where('transactions.tenant_id', $this->context->tenantId())
-                ->when($this->context->branchRequired(), fn ($query) => $query->where('transactions.branch_id', $this->context->branchId()))
-                ->whereIn('transaction_lines.item_id', $missing)
-                ->orderByDesc('transactions.transacted_on')
-                ->orderByDesc('transaction_lines.id')
-                ->get(['transaction_lines.*']);
+            $rows = PurchaseLine::query()
+                ->join('purchases', 'purchases.id', '=', 'purchase_lines.purchase_id')
+                ->where('purchases.tenant_id', $this->context->tenantId())
+                ->when($this->context->branchRequired(), fn ($query) => $query->where('purchases.branch_id', $this->context->branchId()))
+                ->whereIn('purchase_lines.item_id', $missing)
+                ->orderByDesc('purchases.transacted_on')
+                ->orderByDesc('purchase_lines.id')
+                ->get(['purchase_lines.*']);
 
             $grouped = array_fill_keys($missing, []);
 

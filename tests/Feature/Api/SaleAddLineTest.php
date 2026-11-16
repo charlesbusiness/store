@@ -4,8 +4,8 @@ namespace Tests\Feature\Api;
 
 use App\Models\Branch;
 use App\Models\Item;
+use App\Models\Sale;
 use App\Models\Tenant;
-use App\Models\Transaction;
 use Tests\TestCase;
 
 class SaleAddLineTest extends TestCase
@@ -24,7 +24,7 @@ class SaleAddLineTest extends TestCase
         return $item;
     }
 
-    private function sale(): Transaction
+    private function sale(): Sale
     {
         $item = $this->stockedItem();
         $line = $this->recordLine($item, 'sale', 2, 'bag', 5000, '2026-10-24');
@@ -61,8 +61,8 @@ class SaleAddLineTest extends TestCase
             ->assertJsonCount(2, 'data.lines')
             ->assertJsonPath('data.total', 14000);
 
-        $this->assertDatabaseHas('transaction_lines', [
-            'transaction_id' => $sale->id,
+        $this->assertDatabaseHas('sale_lines', [
+            'sale_id' => $sale->id,
             'item_id' => $item->id,
             'unit_price' => 4000,
         ]);
@@ -72,13 +72,13 @@ class SaleAddLineTest extends TestCase
     {
         $sale = $this->sale();
         $item = $this->stockedItem('Rice');
-        $transactionsBefore = Transaction::count();
+        $salesBefore = Sale::count();
 
         $this->actingAs($this->user())
             ->postJson("/api/sales/{$sale->id}/lines", $this->linePayload($item))
             ->assertCreated();
 
-        $this->assertSame($transactionsBefore, Transaction::count());
+        $this->assertSame($salesBefore, Sale::count());
         $this->assertSame(2, $sale->fresh()->lines()->count());
     }
 

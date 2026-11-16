@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Transaction;
+use App\Models\Sale;
 use App\Support\TenantContext;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Barryvdh\DomPDF\PDF as DomPdf;
@@ -21,7 +21,7 @@ class ReceiptController extends Controller
 {
     public function __construct(private readonly TenantContext $context) {}
 
-    public function download(Transaction $sale): Response
+    public function download(Sale $sale): Response
     {
         $this->ensureTenant($sale);
 
@@ -45,13 +45,13 @@ class ReceiptController extends Controller
         return mb_substr($name, 0, 80);
     }
 
-    public function show(Transaction $sale): Response
+    public function show(Sale $sale): Response
     {
         return $this->render($sale)
             ->stream("receipt-sale-{$sale->id}.pdf");
     }
 
-    public function shareLink(Transaction $sale): JsonResponse
+    public function shareLink(Sale $sale): JsonResponse
     {
         $this->ensureTenant($sale);
         $this->ensureSale($sale);
@@ -67,7 +67,7 @@ class ReceiptController extends Controller
         ]);
     }
 
-    private function render(Transaction $sale): DomPdf
+    private function render(Sale $sale): DomPdf
     {
         $this->ensureSale($sale);
 
@@ -78,17 +78,17 @@ class ReceiptController extends Controller
         ])->setPaper('a5');
     }
 
-    private function customerName(Transaction $sale): string
+    private function customerName(Sale $sale): string
     {
         return trim((string) ($sale->customerName?->name ?? ''));
     }
 
-    private function ensureSale(Transaction $sale): void
+    private function ensureSale(Sale $sale): void
     {
         abort_unless($sale->isSale(), 404);
     }
 
-    private function ensureTenant(Transaction $sale): void
+    private function ensureTenant(Sale $sale): void
     {
         abort_unless($sale->tenant_id === $this->context->tenantId(), 404);
     }

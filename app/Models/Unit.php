@@ -5,9 +5,8 @@ namespace App\Models;
 use App\Enums\UnitFamily;
 use App\Support\ValueFormatter;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-
 /**
  * @property int $id
  * @property string $code
@@ -21,11 +20,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property bool $is_default
  * @property bool $is_active
  */
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Unit extends Model
 {
     use HasFactory;
+
     protected $fillable = [
         'code', 'label', 'symbol', 'plural', 'family',
         'base_multiplier', 'is_fraction', 'is_decimal', 'is_default', 'is_active', 'sort',
@@ -50,10 +50,16 @@ class Unit extends Model
         return $this->hasMany(Item::class, 'default_unit_code', 'code');
     }
 
-    /** Transaction lines recorded in this unit. */
-    public function lines(): HasMany
+    /** Sale lines recorded in this unit. */
+    public function saleLines(): HasMany
     {
-        return $this->hasMany(TransactionLine::class, 'unit_code', 'code');
+        return $this->hasMany(SaleLine::class, 'unit_code', 'code');
+    }
+
+    /** Purchase lines recorded in this unit. */
+    public function purchaseLines(): HasMany
+    {
+        return $this->hasMany(PurchaseLine::class, 'unit_code', 'code');
     }
 
     /**
@@ -62,7 +68,9 @@ class Unit extends Model
      */
     public function isInUse(): bool
     {
-        return $this->lines()->exists() || $this->items()->exists();
+        return $this->saleLines()->exists()
+            || $this->purchaseLines()->exists()
+            || $this->items()->exists();
     }
 
     /** The phrase shown after a quantity, pluralised where it matters. */

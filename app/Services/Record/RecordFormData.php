@@ -5,8 +5,8 @@ namespace App\Services\Record;
 use App\Enums\RecordType;
 use App\Enums\UnitFamily;
 use App\Models\Item;
-use App\Models\Transaction;
-use App\Models\TransactionLine;
+use App\Models\LedgerEntry;
+use App\Models\LedgerLine;
 use App\Services\Stock\ActivityReader;
 use App\Services\Stock\CostCalculator;
 use App\Services\Stock\ItemResolver;
@@ -271,13 +271,13 @@ class RecordFormData extends Service
     private function recentLines(RecordType $type, int $limit, int $offset): array
     {
         return $this->activity->recentGrouped($type, $limit, $offset)
-            ->map(fn (Transaction $transaction) => [
+            ->map(fn (LedgerEntry $transaction) => [
                 'id' => $transaction->id,
                 'date' => $transaction->transacted_on->toDateString(),
                 // Formatted here so the view stays a table and not a date library.
                 'dateLabel' => $transaction->transacted_on->toFormattedDateString(),
-                'paid' => $transaction->paid,
-                'lines' => $transaction->lines->map(fn (TransactionLine $line) => [
+                'paid' => $transaction->paid ?? false,
+                'lines' => $transaction->lines->map(fn (LedgerLine $line) => [
                     'id' => $line->id,
                     'name' => $line->item?->name ?? '(deleted item)',
                     'quantity' => $line->unit?->quantityLabel($line->qty) ?? (string) $line->qty,
@@ -317,12 +317,12 @@ class RecordFormData extends Service
             $dateTo,
             $paid
         )
-            ->map(fn (Transaction $transaction) => [
+            ->map(fn (LedgerEntry $transaction) => [
                 'id' => $transaction->id,
                 'date' => $transaction->transacted_on->toDateString(),
                 'dateLabel' => $transaction->transacted_on->toFormattedDateString(),
-                'paid' => $transaction->paid,
-                'lines' => $transaction->lines->map(fn (TransactionLine $line) => [
+                'paid' => $transaction->paid ?? false,
+                'lines' => $transaction->lines->map(fn (LedgerLine $line) => [
                     'id' => $line->id,
                     'name' => $line->item?->name ?? '(deleted item)',
                     'quantity' => $line->unit?->quantityLabel($line->qty) ?? (string) $line->qty,
@@ -341,22 +341,22 @@ class RecordFormData extends Service
     /**
      * The cost of a whole transaction, or null when any line's cost is unknown.
      *
-     * @param  Collection<int, TransactionLine>  $lines
+     * @param  Collection<int, LedgerLine>  $lines
      */
     private function summedCost(Collection $lines): ?float
     {
-        return $lines->contains(fn (TransactionLine $line) => $line->cost === null)
+        return $lines->contains(fn (LedgerLine $line) => $line->cost === null)
             ? null
             : round((float) $lines->sum('cost'), 2);
     }
 
     /**
-     * @param  Collection<int, TransactionLine>  $lines
+     * @param  Collection<int, LedgerLine>  $lines
      */
     private function summedProfit(Collection $lines): ?float
     {
-        return $lines->contains(fn (TransactionLine $line) => $line->profit() === null)
+        return $lines->contains(fn (LedgerLine $line) => $line->profit() === null)
             ? null
-            : round((float) $lines->sum(fn (TransactionLine $line) => $line->profit()), 2);
+            : round((float) $lines->sum(fn (LedgerLine $line) => $line->profit()), 2);
     }
 }

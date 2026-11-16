@@ -6,14 +6,16 @@ use App\Enums\PeriodMode;
 use App\Enums\RecordType;
 use App\Models\Branch;
 use App\Models\Item;
-use App\Models\TransactionLine;
+use App\Models\LedgerLine;
+use App\Models\PurchaseLine;
+use App\Models\SaleLine;
 use App\Models\Unit;
 use App\Services\Stock\StockLedger;
 use App\Support\Service;
+use App\Support\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use App\Support\TenantContext;
 
 /**
  * The entry point for the reports page: one call, one snapshot.
@@ -120,7 +122,7 @@ class ReportService extends Service
         return $rows;
     }
 
-    /** @param  Collection<int, TransactionLine>  $lines */
+    /** @param  Collection<int, LedgerLine>  $lines */
     private function periodLines(PeriodMode $mode, CarbonImmutable $anchor, ?array $dateRange, Collection $lines): Collection
     {
         if ($dateRange) {
@@ -130,7 +132,7 @@ class ReportService extends Service
         $current = $this->buckets->current($mode, $anchor);
 
         return $lines->filter(
-            fn (TransactionLine $line) => $mode->bucketKey($line->transaction->transacted_on->toImmutable()) === $current['key']
+            fn (LedgerLine $line) => $mode->bucketKey($line->transaction->transacted_on->toImmutable()) === $current['key']
         );
     }
 
@@ -138,8 +140,13 @@ class ReportService extends Service
      * Every line inside the visible window, so the chart and the period figures
      * come from a single query.
      *
+     * Sales and purchases now live in separate tables, so the window is read as
+     * two queries and merged into one collection of lines. Downstream code only
+     * cares about a line's date, type and figures, which both line models expose
+     * through the shared contract.
+     *
      * @param  ?array{0: CarbonImmutable, 1: CarbonImmutable}  $dateRange  [start, end]
-     * @return Collection<int, TransactionLine>
+     * @return Collection<int, LedgerLine>
      */
     private function windowLines(
         PeriodMode $mode,
@@ -156,22 +163,36 @@ class ReportService extends Service
             [, $end] = $mode->bucketRange($anchor);
         }
 
-        return TransactionLine::query()
-            ->join('transactions', 'transactions.id', '=', 'transaction_lines.transaction_id')
-            ->where('transactions.tenant_id', $this->context->tenantId())
-            ->when($scope !== 'branch', fn ($query) => $query->whereNull('transactions.stock_transfer_id'))
-            ->when($scope === 'branch', fn ($query) => $query->where('transactions.branch_id', $branchId))
-            ->whereDate('transactions.transacted_on', '>=', $start->toDateString())
-            ->whereDate('transactions.transacted_on', '<=', $end->toDateString())
-            ->select('transaction_lines.*')
+        $sales = SaleLine::query()
+            ->join('sales', 'sales.id', '=', 'sale_lines.sale_id')
+            ->where('sales.tenant_id', $this->context->tenantId())
+            ->when($scope === 'branch', fn ($query) => $query->where('sales.branch_id', $branchId))
+            ->whereDate('sales.transacted_on', '>=', $start->toDateString())
+            ->whereDate('sales.transacted_on', '<=', $end->toDateString())
+            ->select('sale_lines.*')
             ->with(['item.displayUnit', 'unit', 'transaction'])
-            ->orderBy('transactions.transacted_on')
             ->get();
+
+        $purchases = PurchaseLine::query()
+            ->join('purchases', 'purchases.id', '=', 'purchase_lines.purchase_id')
+            ->where('purchases.tenant_id', $this->context->tenantId())
+            ->when($scope !== 'branch', fn ($query) => $query->whereNull('purchases.stock_transfer_id'))
+            ->when($scope === 'branch', fn ($query) => $query->where('purchases.branch_id', $branchId))
+            ->whereDate('purchases.transacted_on', '>=', $start->toDateString())
+            ->whereDate('purchases.transacted_on', '<=', $end->toDateString())
+            ->select('purchase_lines.*')
+            ->with(['item.displayUnit', 'unit', 'transaction'])
+            ->get();
+
+        return $sales->concat($purchases)
+            ->sortBy(fn (LedgerLine $line) => $line->transaction->transacted_on->getTimestamp())
+            ->values();
     }
 
     private function bucketForEnd(PeriodMode $mode, CarbonImmutable $anchor): array
     {
         $start = $mode->bucketStart($anchor);
+
         return [
             'key' => $mode->bucketKey($start),
             'label' => $mode->periodLabel($anchor),
@@ -182,16 +203,16 @@ class ReportService extends Service
     private function periodLabelForRange(PeriodMode $mode, CarbonImmutable $start, CarbonImmutable $end): string
     {
         return match ($mode) {
-            PeriodMode::Daily => $start->format('D M j Y') . ' – ' . $end->format('D M j Y'),
-            PeriodMode::Weekly => 'Week of ' . $start->format('M j') . ' – ' . $end->format('M j'),
-            PeriodMode::Monthly => $start->format('F Y') . ' – ' . $end->format('F Y'),
+            PeriodMode::Daily => $start->format('D M j Y').' – '.$end->format('D M j Y'),
+            PeriodMode::Weekly => 'Week of '.$start->format('M j').' – '.$end->format('M j'),
+            PeriodMode::Monthly => $start->format('F Y').' – '.$end->format('F Y'),
         };
     }
 
     private function totalOf(Collection $lines, RecordType $type): float
     {
         return round(
-            $lines->filter(fn (TransactionLine $line) => $line->transaction->type === $type)->sum('total'),
+            $lines->filter(fn (LedgerLine $line) => $line->transaction->type() === $type)->sum('total'),
             2
         );
     }
@@ -259,7 +280,7 @@ class ReportService extends Service
     {
         $grouped = [];
 
-        foreach ($lines->filter(fn (TransactionLine $line) => $line->transaction->type === $type) as $line) {
+        foreach ($lines->filter(fn (LedgerLine $line) => $line->transaction->type() === $type) as $line) {
             $grouped[$line->item_id] ??= [
                 'item' => $line->item,
                 'base_qty' => 0.0,
@@ -312,6 +333,7 @@ class ReportService extends Service
     {
         $buckets = $this->buckets->buckets($mode, $anchor);
         $lines = $this->windowLines($mode, $anchor, null, $scope, $branchId);
+
         return $this->trend->build($buckets, $lines, $mode);
     }
 }

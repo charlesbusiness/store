@@ -8,28 +8,27 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A single line on a transaction.
+ * A single line on a sale or a purchase.
  *
  * base_qty is the quantity in the item family's base unit and unit_price is
  * the price for one of the line's own unit. Both are computed once on write,
  * which is what lets stock and reports aggregate without joining units.
  *
  * @property int $id
- * @property int $transaction_id
  * @property int $item_id
  * @property float $qty
  * @property string $unit_code
  * @property float $base_qty
- * @property float $unit_price
+ * @property float|null $unit_price
  * @property float $total
  * @property array<int, array{unit: string, per: float}>|null $inner_units
  * @property float|null $cost
  * @property float|null $selling_price
  */
-class TransactionLine extends Model
+abstract class LedgerLine extends Model
 {
     protected $fillable = [
-        'transaction_id', 'item_id', 'qty', 'unit_code', 'base_qty', 'unit_price', 'total',
+        'item_id', 'qty', 'unit_code', 'base_qty', 'unit_price', 'total',
         'inner_units', 'unit_cost', 'cost', 'selling_price',
     ];
 
@@ -64,10 +63,8 @@ class TransactionLine extends Model
         return $this->profit();
     }
 
-    public function transaction(): BelongsTo
-    {
-        return $this->belongsTo(Transaction::class);
-    }
+    /** The header this line belongs to. */
+    abstract public function transaction(): BelongsTo;
 
     public function item(): BelongsTo
     {
@@ -81,14 +78,14 @@ class TransactionLine extends Model
 
     public function recordType(): ?RecordType
     {
-        return $this->transaction?->type;
+        return $this->transaction?->type();
     }
 
     /**
      * What this receipt declared one trading unit was made of, if anything.
      *
-     * Only a purchase carries this: it is the declaration, and later sales read
-     * the item's most recent one rather than repeating it.
+     * Only a purchase carries the declaration; a later sale copies the item's
+     * most recent one rather than repeating it.
      */
     public function packs(): Packs
     {

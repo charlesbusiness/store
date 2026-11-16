@@ -4,7 +4,7 @@ namespace App\Services\Report;
 
 use App\Enums\PeriodMode;
 use App\Enums\RecordType;
-use App\Models\TransactionLine;
+use App\Models\LedgerLine;
 use App\Support\Service;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -17,7 +17,7 @@ class TrendSeriesBuilder extends Service
 {
     /**
      * @param  array<int, array{key: string, label: string, start: CarbonImmutable}>  $buckets
-     * @param  Collection<int, TransactionLine>  $lines
+     * @param  Collection<int, LedgerLine>  $lines
      * @return array<int, array{key: string, label: string, start: CarbonImmutable, sales: float, purchases: float}>
      */
     public function build(array $buckets, Collection $lines, PeriodMode $mode): array
@@ -70,7 +70,7 @@ class TrendSeriesBuilder extends Service
                 continue;
             }
 
-            $type = $line->transaction->type->value;
+            $type = $line->transaction->type()->value;
             $totals[$key][$type] = ($totals[$key][$type] ?? 0) + (float) $line->total;
         }
 

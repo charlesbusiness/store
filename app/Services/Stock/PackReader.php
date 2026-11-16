@@ -41,21 +41,25 @@ class PackReader extends Service
 
         // The newest declared line per item, in a single query: the group by
         // finds each item's latest id, the outer query reads its declaration.
-        $rows = DB::table('transaction_lines')
-            ->join('transactions', 'transactions.id', '=', 'transaction_lines.transaction_id')
-            ->select('transaction_lines.item_id', 'transaction_lines.inner_units')
-            ->where('transactions.tenant_id', $this->context->tenantId())
-            ->when($this->context->branchRequired(), fn ($query) => $query->where('transactions.branch_id', $this->context->branchId()))
-            ->whereNotNull('transaction_lines.inner_units')
-            ->whereIn('transaction_lines.id', function ($query) use ($ids): void {
-                $query->selectRaw('MAX(transaction_lines.id)')
-                    ->from('transaction_lines')
-                    ->join('transactions', 'transactions.id', '=', 'transaction_lines.transaction_id')
-                    ->where('transactions.tenant_id', $this->context->tenantId())
-                    ->when($this->context->branchRequired(), fn ($query) => $query->where('transactions.branch_id', $this->context->branchId()))
-                    ->whereNotNull('transaction_lines.inner_units')
-                    ->whereIn('transaction_lines.item_id', $ids)
-                    ->groupBy('transaction_lines.item_id');
+        //
+        // Only purchases declare a pack. A sale copies whatever was current at
+        // the time, so the purchases table already holds every declaration and
+        // is the single source of truth.
+        $rows = DB::table('purchase_lines')
+            ->join('purchases', 'purchases.id', '=', 'purchase_lines.purchase_id')
+            ->select('purchase_lines.item_id', 'purchase_lines.inner_units')
+            ->where('purchases.tenant_id', $this->context->tenantId())
+            ->when($this->context->branchRequired(), fn ($query) => $query->where('purchases.branch_id', $this->context->branchId()))
+            ->whereNotNull('purchase_lines.inner_units')
+            ->whereIn('purchase_lines.id', function ($query) use ($ids): void {
+                $query->selectRaw('MAX(purchase_lines.id)')
+                    ->from('purchase_lines')
+                    ->join('purchases', 'purchases.id', '=', 'purchase_lines.purchase_id')
+                    ->where('purchases.tenant_id', $this->context->tenantId())
+                    ->when($this->context->branchRequired(), fn ($query) => $query->where('purchases.branch_id', $this->context->branchId()))
+                    ->whereNotNull('purchase_lines.inner_units')
+                    ->whereIn('purchase_lines.item_id', $ids)
+                    ->groupBy('purchase_lines.item_id');
             })
             ->get();
 

@@ -4,11 +4,9 @@ namespace App\Models;
 
 use App\Enums\UnitFamily;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-
 /**
  * Something being traded.
  *
@@ -26,11 +24,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property bool $is_active
  * @property-read Unit|null $displayUnit
  */
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Item extends Model
 {
     use HasFactory;
+
     protected $fillable = [
         'tenant_id', 'name', 'name_key', 'family', 'default_unit_code', 'pack_size', 'notes', 'is_active',
     ];
@@ -66,32 +65,21 @@ class Item extends Model
         return $this->family?->label();
     }
 
-    public function lines(): HasMany
+    public function saleLines(): HasMany
     {
-        return $this->hasMany(TransactionLine::class);
+        return $this->hasMany(SaleLine::class);
+    }
+
+    public function purchaseLines(): HasMany
+    {
+        return $this->hasMany(PurchaseLine::class);
     }
 
     public function packs(): HasMany
     {
-        return $this->hasMany(TransactionLine::class)
+        return $this->purchaseLines()
             ->whereNotNull('inner_units')
             ->distinct('inner_units');
-    }
-
-    public function transactions(): HasManyThrough
-    {
-        // item_id joins the lines to this item, and the line's own id joins the
-        // transaction through it. Both are named because the defaults are a guess:
-        // left to itself Laravel reaches for a transaction_line_id that has never
-        // existed, and the relation only fails when something finally calls it.
-        return $this->hasManyThrough(
-            Transaction::class,
-            TransactionLine::class,
-            'item_id',
-            'id',
-            'id',
-            'id',
-        );
     }
 
     /**
@@ -100,7 +88,7 @@ class Item extends Model
      */
     public function hasHistory(): bool
     {
-        return $this->lines()->exists();
+        return $this->saleLines()->exists() || $this->purchaseLines()->exists();
     }
 
     /** Collapse whitespace so " Rice 50kg " and "Rice 50kg" are one item. */

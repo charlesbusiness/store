@@ -3,7 +3,7 @@
 namespace App\Services\Report;
 
 use App\Enums\RecordType;
-use App\Models\TransactionLine;
+use App\Models\LedgerLine;
 use App\Support\Service;
 use Illuminate\Support\Collection;
 
@@ -20,11 +20,11 @@ use Illuminate\Support\Collection;
 class ProfitCalculator extends Service
 {
     /**
-     * @param  Collection<int, TransactionLine>  $lines  the lines in the period
+     * @param  Collection<int, LedgerLine>  $lines  the lines in the period
      */
     public function forLines(Collection $lines): ProfitSummary
     {
-        $sales = $lines->filter(fn (TransactionLine $line) => $line->transaction->type === RecordType::Sale);
+        $sales = $lines->filter(fn (LedgerLine $line) => $line->transaction->type() === RecordType::Sale);
 
         $revenue = 0.0;
         $knownRevenue = 0.0;

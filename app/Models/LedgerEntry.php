@@ -3,53 +3,47 @@
 namespace App\Models;
 
 use App\Enums\RecordType;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
- * One sale or one purchase, with its lines.
+ * One side of the ledger: a sale or a purchase, with its lines.
+ *
+ * Sales and purchases live in their own tables, but the code that reads the
+ * ledger treats them the same way -- a dated header that owns lines and can be
+ * totalled. That shared shape lives here so the two concrete models stay thin,
+ * and so a report can hold a mixed collection of both without caring which is
+ * which beyond the type it reports.
  *
  * @property int $id
- * @property RecordType $type
+ * @property int|null $tenant_id
+ * @property int|null $branch_id
  * @property Carbon $transacted_on
  * @property int|null $user_id
- * @property-read CustomerName|null $customerName
- * @property-read Collection<int, TransactionLine> $lines
+ * @property-read Collection<int, LedgerLine> $lines
  * @property float $total
  * @property float|null $cost
  * @property float|null $profit
  */
-class Transaction extends Model
+abstract class LedgerEntry extends Model
 {
-    use HasFactory;
-
-    protected $fillable = ['tenant_id', 'branch_id', 'type', 'transacted_on', 'user_id', 'paid', 'stock_transfer_id'];
-
     protected $appends = ['total', 'cost', 'profit'];
 
     protected function casts(): array
     {
         return [
-            'type' => RecordType::class,
             'transacted_on' => 'date',
-            'paid' => 'boolean',
         ];
     }
 
-    public function lines(): HasMany
-    {
-        return $this->hasMany(TransactionLine::class);
-    }
+    /** Which side of the ledger this header records. */
+    abstract public function type(): RecordType;
 
-    public function customerName(): HasOne
-    {
-        return $this->hasOne(CustomerName::class);
-    }
+    /** @return HasMany<LedgerLine, $this> */
+    abstract public function lines(): HasMany;
 
     public function user(): BelongsTo
     {
@@ -64,16 +58,6 @@ class Transaction extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
-    }
-
-    public function stockTransfer(): BelongsTo
-    {
-        return $this->belongsTo(StockTransfer::class);
-    }
-
-    public function isInternalTransfer(): bool
-    {
-        return $this->stock_transfer_id !== null;
     }
 
     public function total(): float
@@ -100,21 +84,11 @@ class Transaction extends Model
 
     public function isSale(): bool
     {
-        return $this->type === RecordType::Sale;
+        return $this->type() === RecordType::Sale;
     }
 
     public function isPurchase(): bool
     {
-        return $this->type === RecordType::Purchase;
-    }
-
-    public function scopePurchases($query)
-    {
-        return $query->where('type', RecordType::Purchase);
-    }
-
-    public function scopeSales($query)
-    {
-        return $query->where('type', RecordType::Sale);
+        return $this->type() === RecordType::Purchase;
     }
 }

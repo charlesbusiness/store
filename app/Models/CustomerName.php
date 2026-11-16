@@ -9,15 +9,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * The optional customer named on a sale.
  *
  * @property int $id
- * @property int $transaction_id
+ * @property int $sale_id
  * @property string $name
  */
 class CustomerName extends Model
 {
-    protected $fillable = ['tenant_id', 'transaction_id', 'name'];
+    protected $fillable = ['tenant_id', 'sale_id', 'name'];
 
-    public function transaction(): BelongsTo
+    public function sale(): BelongsTo
     {
-        return $this->belongsTo(Transaction::class);
+        return $this->belongsTo(Sale::class);
     }
 }

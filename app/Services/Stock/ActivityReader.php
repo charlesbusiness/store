@@ -4,14 +4,14 @@ namespace App\Services\Stock;
 
 use App\Enums\RecordType;
 use App\Models\Item;
-use App\Models\Transaction;
+use App\Models\LedgerEntry;
 use App\Support\Service;
+use App\Support\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use App\Support\TenantContext;
 
 /**
  * Reads the ledger as a timeline: the most recent transactions of a type, and
@@ -24,7 +24,7 @@ class ActivityReader extends Service
     /** How many transactions of a type exist, for the "showing N of M" hint. */
     public function transactionsOf(RecordType $type): int
     {
-        return $this->applyFilters(Transaction::query(), $type)->count();
+        return $this->applyFilters($type->entryModel()::query(), $type)->count();
     }
 
     /**
@@ -38,7 +38,7 @@ class ActivityReader extends Service
         ?bool $paid = null
     ): int {
         return $this->applyFilters(
-            Transaction::query(),
+            $type->entryModel()::query(),
             $type,
             $search,
             $dateFrom,
@@ -55,14 +55,13 @@ class ActivityReader extends Service
      * counts transactions, not lines, so a subtotal is never shown for a sale
      * whose lines have been cut off by it.
      *
-     * @return EloquentCollection<int, Transaction>
+     * @return EloquentCollection<int, LedgerEntry>
      */
     public function recentGrouped(RecordType $type, ?int $limit = null, int $offset = 0): EloquentCollection
     {
         $limit ??= (int) config('stockly.recent_limit', 8);
 
-        return Transaction::query()
-            ->where('type', $type->value)
+        return $type->entryModel()::query()
             ->where('tenant_id', $this->context->tenantId())
             ->when($this->context->branchRequired(), fn ($query) => $query->where('branch_id', $this->context->branchId()))
             ->with(['lines.item.displayUnit', 'lines.unit'])
@@ -81,7 +80,7 @@ class ActivityReader extends Service
      * - dateFrom: transaction date >= dateFrom
      * - dateTo: transaction date <= dateTo
      *
-     * @return EloquentCollection<int, Transaction>
+     * @return EloquentCollection<int, LedgerEntry>
      */
     public function recentGroupedFiltered(
         RecordType $type,
@@ -95,7 +94,7 @@ class ActivityReader extends Service
         $limit ??= (int) config('stockly.recent_limit', 8);
 
         return $this->applyFilters(
-            Transaction::query(),
+            $type->entryModel()::query(),
             $type,
             $search,
             $dateFrom,
@@ -117,7 +116,7 @@ class ActivityReader extends Service
      * item-name substring and an inclusive date window, both optional and both
      * lenient about junk input.
      *
-     * @return LengthAwarePaginator<int, Transaction>
+     * @return LengthAwarePaginator<int, LedgerEntry>
      */
     public function paginateFiltered(
         RecordType $type,
@@ -127,15 +126,21 @@ class ActivityReader extends Service
         int $perPage = 20,
         ?bool $paid = null,
     ): LengthAwarePaginator {
+        $relations = ['lines.item', 'lines.unit'];
+
+        if ($type === RecordType::Sale) {
+            $relations[] = 'customerName';
+        }
+
         return $this->applyFilters(
-            Transaction::query(),
+            $type->entryModel()::query(),
             $type,
             $search !== null && $search !== '' ? $search : null,
             $this->parseDate($dateFrom),
             $this->parseDate($dateTo),
             $paid,
         )
-            ->with(['customerName', 'lines.item', 'lines.unit'])
+            ->with($relations)
             ->orderByDesc('transacted_on')
             ->orderByDesc('id')
             ->paginate($perPage);
@@ -166,7 +171,6 @@ class ActivityReader extends Service
         ?CarbonImmutable $dateTo = null,
         ?bool $paid = null
     ) {
-        $query->where('type', $type->value);
         $query->where('tenant_id', $this->context->tenantId());
 
         if ($this->context->branchRequired()) {
@@ -213,25 +217,23 @@ class ActivityReader extends Service
         }
 
         // Ordered newest first, so the first row seen for an item is its last sale.
-        $query = DB::table('transaction_lines')
-            ->join('transactions', 'transactions.id', '=', 'transaction_lines.transaction_id')
-            ->where('transactions.type', RecordType::Sale->value)
-            ->where('transactions.tenant_id', $this->context->tenantId())
-            ->whereIn('transaction_lines.item_id', $ids)
-            ->orderByDesc('transactions.transacted_on')
-            ->orderByDesc('transaction_lines.id')
-            ;
+        $query = DB::table('sale_lines')
+            ->join('sales', 'sales.id', '=', 'sale_lines.sale_id')
+            ->where('sales.tenant_id', $this->context->tenantId())
+            ->whereIn('sale_lines.item_id', $ids)
+            ->orderByDesc('sales.transacted_on')
+            ->orderByDesc('sale_lines.id');
 
         if ($this->context->branchRequired()) {
-            $query->where('transactions.branch_id', $this->context->branchId());
+            $query->where('sales.branch_id', $this->context->branchId());
         }
 
         $rows = $query->get([
-                'transaction_lines.item_id as item_id',
-                'transaction_lines.unit_code as unit_code',
-                'transaction_lines.base_qty as base_qty',
-                'transaction_lines.unit_price as unit_price',
-            ]);
+            'sale_lines.item_id as item_id',
+            'sale_lines.unit_code as unit_code',
+            'sale_lines.base_qty as base_qty',
+            'sale_lines.unit_price as unit_price',
+        ]);
 
         $latest = [];
 

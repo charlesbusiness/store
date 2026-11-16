@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Api;
 
-use App\Models\Transaction;
+use App\Models\Sale;
 use Tests\TestCase;
 
 class SaleReceiptTest extends TestCase
@@ -13,7 +13,7 @@ class SaleReceiptTest extends TestCase
         $this->seedUnits();
     }
 
-    private function sale(string $date = '2026-10-24', ?string $customerName = null): Transaction
+    private function sale(string $date = '2026-10-24', ?string $customerName = null): Sale
     {
         $item = $this->item('Yam');
         $line = $this->recordLine($item, 'sale', 2, 'bag', 5000, $date);

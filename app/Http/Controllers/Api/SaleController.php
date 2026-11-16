@@ -10,8 +10,8 @@ use App\Http\Requests\UpdateSaleCustomerRequest;
 use App\Http\Requests\UpdateSaleLineRequest;
 use App\Http\Resources\SaleResource;
 use App\Models\Item;
-use App\Models\Transaction;
-use App\Models\TransactionLine;
+use App\Models\Sale;
+use App\Models\SaleLine;
 use App\Services\Record\LineNormalizer;
 use App\Services\Record\RecordFormData;
 use App\Services\Record\SaleRecorder;
@@ -102,7 +102,7 @@ class SaleController extends Controller
         ], 201);
     }
 
-    public function show(Transaction $sale): JsonResponse
+    public function show(Sale $sale): JsonResponse
     {
         abort_unless($sale->tenant_id === $this->context->tenantId(), 404);
         $sale->load(['customerName', 'lines.item', 'lines.unit']);
@@ -110,7 +110,7 @@ class SaleController extends Controller
         return response()->json(['data' => new SaleResource($sale)]);
     }
 
-    public function updateCustomer(UpdateSaleCustomerRequest $request, Transaction $sale): JsonResponse
+    public function updateCustomer(UpdateSaleCustomerRequest $request, Sale $sale): JsonResponse
     {
         abort_unless($sale->tenant_id === $this->context->tenantId(), 404);
         abort_unless($sale->isSale(), 404);
@@ -131,7 +131,7 @@ class SaleController extends Controller
         ]);
     }
 
-    public function destroy(Transaction $sale): JsonResponse
+    public function destroy(Sale $sale): JsonResponse
     {
         abort_unless($sale->tenant_id === $this->context->tenantId(), 404);
         $sale->delete();
@@ -139,10 +139,10 @@ class SaleController extends Controller
         return response()->json(['message' => 'Sale deleted']);
     }
 
-    public function destroyLine(Transaction $sale, TransactionLine $line): JsonResponse
+    public function destroyLine(Sale $sale, SaleLine $line): JsonResponse
     {
         abort_unless($sale->tenant_id === $this->context->tenantId(), 404);
-        if ($line->transaction_id !== $sale->id) {
+        if ($line->sale_id !== $sale->id) {
             return response()->json(['message' => 'Line not found in this sale'], 404);
         }
 
@@ -157,7 +157,7 @@ class SaleController extends Controller
         return response()->json(['message' => 'Line deleted']);
     }
 
-    public function markPaid(Transaction $sale): JsonResponse
+    public function markPaid(Sale $sale): JsonResponse
     {
         abort_unless($sale->tenant_id === $this->context->tenantId(), 404);
         $sale->update(['paid' => true]);
@@ -171,7 +171,7 @@ class SaleController extends Controller
      * recorder as a fresh sale, so the stock actually drawn is guarded and the
      * cost is snapshotted on write.
      */
-    public function storeLine(StoreSaleLineRequest $request, Transaction $sale): JsonResponse
+    public function storeLine(StoreSaleLineRequest $request, Sale $sale): JsonResponse
     {
         abort_unless($sale->tenant_id === $this->context->tenantId(), 404);
         abort_unless($sale->isSale(), 404);
@@ -194,10 +194,10 @@ class SaleController extends Controller
      * corrected quantity is re-checked against what is available (adding back
      * the line's own draw, which the ledger already subtracted).
      */
-    public function updateLine(UpdateSaleLineRequest $request, Transaction $sale, TransactionLine $line): JsonResponse
+    public function updateLine(UpdateSaleLineRequest $request, Sale $sale, SaleLine $line): JsonResponse
     {
         abort_unless($sale->tenant_id === $this->context->tenantId(), 404);
-        if ($line->transaction_id !== $sale->id) {
+        if ($line->sale_id !== $sale->id) {
             return response()->json(['message' => 'Line not found in this sale'], 404);
         }
 

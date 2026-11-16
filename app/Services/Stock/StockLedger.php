@@ -2,14 +2,14 @@
 
 namespace App\Services\Stock;
 
-use App\Enums\RecordType;
 use App\Models\Item;
-use App\Models\TransactionLine;
+use App\Models\PurchaseLine;
+use App\Models\SaleLine;
 use App\Support\Service;
+use App\Support\TenantContext;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use App\Support\TenantContext;
 
 /**
  * Derives every stock figure from the transaction ledger.
@@ -21,6 +21,7 @@ use App\Support\TenantContext;
 class StockLedger extends Service
 {
     public function __construct(private readonly TenantContext $context) {}
+
     /**
      * Stock positions for every item in the given collection, or the whole
      * catalogue when omitted. Items that have never traded are included with
@@ -53,11 +54,16 @@ class StockLedger extends Service
     public function positionsForBranchWithActivity(Collection $items, int $branchId): Collection
     {
         $positions = $this->positionsForBranch($items, $branchId);
-        $activeIds = DB::table('transaction_lines')
-            ->join('transactions', 'transactions.id', '=', 'transaction_lines.transaction_id')
-            ->where('transactions.tenant_id', $this->context->tenantId())
-            ->where('transactions.branch_id', $branchId)
-            ->pluck('transaction_lines.item_id')
+        $activeIds = DB::table('sale_lines')
+            ->join('sales', 'sales.id', '=', 'sale_lines.sale_id')
+            ->where('sales.tenant_id', $this->context->tenantId())
+            ->where('sales.branch_id', $branchId)
+            ->pluck('sale_lines.item_id')
+            ->merge(DB::table('purchase_lines')
+                ->join('purchases', 'purchases.id', '=', 'purchase_lines.purchase_id')
+                ->where('purchases.tenant_id', $this->context->tenantId())
+                ->where('purchases.branch_id', $branchId)
+                ->pluck('purchase_lines.item_id'))
             ->merge(DB::table('stock_transfer_lines')
                 ->join('stock_transfers', 'stock_transfers.id', '=', 'stock_transfer_lines.stock_transfer_id')
                 ->where('stock_transfers.tenant_id', $this->context->tenantId())
@@ -97,10 +103,15 @@ class StockLedger extends Service
     /** Positions for every item that has at least one ledger line. */
     public function tradedPositions(): Collection
     {
-        $itemIds = TransactionLine::query()
+        $itemIds = SaleLine::query()
             ->whereHas('transaction', fn ($query) => $query->where('tenant_id', $this->context->tenantId()))
             ->distinct()
-            ->pluck('item_id');
+            ->pluck('item_id')
+            ->merge(PurchaseLine::query()
+                ->whereHas('transaction', fn ($query) => $query->where('tenant_id', $this->context->tenantId()))
+                ->distinct()
+                ->pluck('item_id'))
+            ->unique();
 
         return $this->positions(Item::with('displayUnit')->whereIn('id', $itemIds)->get());
     }
@@ -173,41 +184,20 @@ class StockLedger extends Service
     /**
      * One row per item, summing lines by direction.
      *
+     * Purchases and sales now live in separate tables, so the two directions are
+     * summed separately and merged here. The result is the same shape as the old
+     * single-query CASE WHEN version: bought/cost come from purchases, sold/
+     * revenue from sales.
+     *
      * @return array<int, array{bought: float, cost: float, sold: float, revenue: float}>
      */
     private function aggregate(?int $branchId = null, bool $account = false): array
     {
-        $purchase = RecordType::Purchase->value;
-        $sale = RecordType::Sale->value;
         $branchId = $account ? null : ($branchId ?? ($this->context->branchRequired() ? $this->context->branchId() : null));
 
-        $query = DB::table('transaction_lines')
-            ->join('transactions', 'transactions.id', '=', 'transaction_lines.transaction_id')
-            ->where('transactions.tenant_id', $this->context->tenantId());
+        $totals = $this->purchaseTotals($branchId);
 
-        if ($branchId !== null) {
-            $query->where('transactions.branch_id', $branchId);
-        }
-
-        $rows = $query
-            ->selectRaw('transaction_lines.item_id as item_id')
-            ->selectRaw('sum(case when transactions.type = ? then transaction_lines.base_qty else 0 end) as bought', [$purchase])
-            ->selectRaw('sum(case when transactions.type = ? then COALESCE(transaction_lines.unit_cost, transaction_lines.unit_price) * transaction_lines.qty else 0 end) as cost', [$purchase])
-            ->selectRaw('sum(case when transactions.type = ? then transaction_lines.base_qty else 0 end) as sold', [$sale])
-            ->selectRaw('sum(case when transactions.type = ? then transaction_lines.total else 0 end) as revenue', [$sale])
-            ->groupBy('transaction_lines.item_id')
-            ->get();
-
-        $totals = [];
-
-        foreach ($rows as $row) {
-            $totals[(int) $row->item_id] = [
-                'bought' => (float) $row->bought,
-                'cost' => (float) $row->cost,
-                'sold' => (float) $row->sold,
-                'revenue' => (float) $row->revenue,
-            ];
-        }
+        $totals = $this->mergeSaleTotals($totals, $branchId);
 
         if ($branchId !== null) {
             $transferRows = DB::table('stock_transfer_lines')
@@ -241,18 +231,86 @@ class StockLedger extends Service
         return $totals;
     }
 
+    /**
+     * What was bought, and what it cost, per item.
+     *
+     * @return array<int, array{bought: float, cost: float, sold: float, revenue: float}>
+     */
+    private function purchaseTotals(?int $branchId): array
+    {
+        $query = DB::table('purchase_lines')
+            ->join('purchases', 'purchases.id', '=', 'purchase_lines.purchase_id')
+            ->where('purchases.tenant_id', $this->context->tenantId());
+
+        if ($branchId !== null) {
+            $query->where('purchases.branch_id', $branchId);
+        }
+
+        $rows = $query
+            ->selectRaw('purchase_lines.item_id as item_id')
+            ->selectRaw('sum(purchase_lines.base_qty) as bought')
+            ->selectRaw('sum(COALESCE(purchase_lines.unit_cost, purchase_lines.unit_price) * purchase_lines.qty) as cost')
+            ->groupBy('purchase_lines.item_id')
+            ->get();
+
+        $totals = [];
+
+        foreach ($rows as $row) {
+            $totals[(int) $row->item_id] = [
+                'bought' => (float) $row->bought,
+                'cost' => (float) $row->cost,
+                'sold' => 0.0,
+                'revenue' => 0.0,
+            ];
+        }
+
+        return $totals;
+    }
+
+    /**
+     * Folds what was sold, and the revenue it brought, into the purchase totals.
+     *
+     * @param  array<int, array{bought: float, cost: float, sold: float, revenue: float}>  $totals
+     * @return array<int, array{bought: float, cost: float, sold: float, revenue: float}>
+     */
+    private function mergeSaleTotals(array $totals, ?int $branchId): array
+    {
+        $query = DB::table('sale_lines')
+            ->join('sales', 'sales.id', '=', 'sale_lines.sale_id')
+            ->where('sales.tenant_id', $this->context->tenantId());
+
+        if ($branchId !== null) {
+            $query->where('sales.branch_id', $branchId);
+        }
+
+        $rows = $query
+            ->selectRaw('sale_lines.item_id as item_id')
+            ->selectRaw('sum(sale_lines.base_qty) as sold')
+            ->selectRaw('sum(sale_lines.total) as revenue')
+            ->groupBy('sale_lines.item_id')
+            ->get();
+
+        foreach ($rows as $row) {
+            $id = (int) $row->item_id;
+            $totals[$id] ??= ['bought' => 0.0, 'cost' => 0.0, 'sold' => 0.0, 'revenue' => 0.0];
+            $totals[$id]['sold'] += (float) $row->sold;
+            $totals[$id]['revenue'] += (float) $row->revenue;
+        }
+
+        return $totals;
+    }
+
     private function removeInternalTransferPurchases(array $totals, int $branchId): array
     {
-        $rows = DB::table('transaction_lines')
-            ->join('transactions', 'transactions.id', '=', 'transaction_lines.transaction_id')
-            ->where('transactions.tenant_id', $this->context->tenantId())
-            ->where('transactions.branch_id', $branchId)
-            ->where('transactions.type', RecordType::Purchase->value)
-            ->whereNotNull('transactions.stock_transfer_id')
-            ->selectRaw('transaction_lines.item_id as item_id')
-            ->selectRaw('sum(transaction_lines.base_qty) as bought')
-            ->selectRaw('sum(COALESCE(transaction_lines.unit_cost, transaction_lines.unit_price) * transaction_lines.qty) as cost')
-            ->groupBy('transaction_lines.item_id')
+        $rows = DB::table('purchase_lines')
+            ->join('purchases', 'purchases.id', '=', 'purchase_lines.purchase_id')
+            ->where('purchases.tenant_id', $this->context->tenantId())
+            ->where('purchases.branch_id', $branchId)
+            ->whereNotNull('purchases.stock_transfer_id')
+            ->selectRaw('purchase_lines.item_id as item_id')
+            ->selectRaw('sum(purchase_lines.base_qty) as bought')
+            ->selectRaw('sum(COALESCE(purchase_lines.unit_cost, purchase_lines.unit_price) * purchase_lines.qty) as cost')
+            ->groupBy('purchase_lines.item_id')
             ->get();
 
         foreach ($rows as $row) {

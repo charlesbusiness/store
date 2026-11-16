@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Branch;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Console\Command;
@@ -28,7 +27,8 @@ class MigrateTenancyCommand extends Command
 
         $counts = [
             'items' => DB::table('items')->whereNull('tenant_id')->count(),
-            'transactions' => DB::table('transactions')->where(fn ($query) => $query->whereNull('tenant_id')->orWhereNull('branch_id'))->count(),
+            'sales' => DB::table('sales')->where(fn ($query) => $query->whereNull('tenant_id')->orWhereNull('branch_id'))->count(),
+            'purchases' => DB::table('purchases')->where(fn ($query) => $query->whereNull('tenant_id')->orWhereNull('branch_id'))->count(),
             'customers' => DB::table('customer_names')->whereNull('tenant_id')->count(),
         ];
 
@@ -68,11 +68,13 @@ class MigrateTenancyCommand extends Command
             $branch->users()->syncWithoutDetaching([$owner->id]);
 
             DB::table('items')->whereNull('tenant_id')->update(['tenant_id' => $tenant->id]);
-            DB::table('transactions')->whereNull('tenant_id')->update([
-                'tenant_id' => $tenant->id,
-                'branch_id' => $branch->id,
-            ]);
-            DB::table('transactions')->whereNull('branch_id')->update(['branch_id' => $branch->id]);
+            foreach (['sales', 'purchases'] as $table) {
+                DB::table($table)->whereNull('tenant_id')->update([
+                    'tenant_id' => $tenant->id,
+                    'branch_id' => $branch->id,
+                ]);
+                DB::table($table)->whereNull('branch_id')->update(['branch_id' => $branch->id]);
+            }
             DB::table('customer_names')->whereNull('tenant_id')->update(['tenant_id' => $tenant->id]);
         });
 

@@ -4,8 +4,7 @@ namespace App\Services\Record;
 
 use App\Enums\RecordType;
 use App\Models\Item;
-use App\Models\Transaction;
-use App\Models\TransactionLine;
+use App\Models\LedgerEntry;
 use App\Models\Unit;
 use App\Models\User;
 use App\Services\Stock\AvailabilityChecker;
@@ -52,7 +51,7 @@ abstract class RecordWriter extends Service
      *
      * @throws ValidationException
      */
-    public function record(array $payload, ?User $user = null): Transaction
+    public function record(array $payload, ?User $user = null): LedgerEntry
     {
         $rows = array_values($payload['lines'] ?? []);
 
@@ -71,8 +70,9 @@ abstract class RecordWriter extends Service
             // Re-checked under the lock: the form's own check may be minutes old.
             $this->guard($lines);
 
-            $transaction = Transaction::create([
-                'type' => $this->type(),
+            $model = $this->type()->entryModel();
+
+            $transaction = $model::create([
                 'tenant_id' => $this->context->tenantId(),
                 'branch_id' => $this->context->requireBranch(),
                 'transacted_on' => $payload['transacted_on'],
@@ -90,14 +90,14 @@ abstract class RecordWriter extends Service
     /**
      * Append lines to a transaction that already exists, through the same
      * resolve/normalise/lock/guard path as record(). The header is left alone:
-     * its type, date and branch were fixed when it was first written, so the
-     * new line joins the group rather than starting a new one.
+     * its date and branch were fixed when it was first written, so the new line
+     * joins the group rather than starting a new one.
      *
      * @param  array<int, array<string, mixed>>  $rows
      *
      * @throws ValidationException
      */
-    public function addLine(Transaction $transaction, array $rows): Transaction
+    public function addLine(LedgerEntry $transaction, array $rows): LedgerEntry
     {
         $rows = array_values($rows);
 
@@ -125,11 +125,13 @@ abstract class RecordWriter extends Service
      *
      * @param  BaseCollection<int, array{item: Item, unit: Unit, qty: float, base_qty: float, unit_price: float, total: float, inner_units?: array|null, unit_cost?: float|null, selling_price?: float|null}>  $lines
      */
-    protected function writeLines(Transaction $transaction, BaseCollection $lines): void
+    protected function writeLines(LedgerEntry $transaction, BaseCollection $lines): void
     {
         foreach ($lines as $line) {
-            TransactionLine::create([
-                'transaction_id' => $transaction->id,
+            // Written through the header's own relation so the line lands in the
+            // right table (sale_lines or purchase_lines) with the right foreign
+            // key, without the writer having to know which side it is on.
+            $transaction->lines()->create([
                 'item_id' => $line['item']->id,
                 'qty' => $line['qty'],
                 'unit_code' => $line['unit']->code,
@@ -149,7 +151,7 @@ abstract class RecordWriter extends Service
      *
      * @param  array{transacted_on: string, customer_name?: string|null, lines: array<int, array<string, mixed>>}  $payload
      */
-    protected function afterRecording(Transaction $transaction, array $payload): void
+    protected function afterRecording(LedgerEntry $transaction, array $payload): void
     {
         //
     }

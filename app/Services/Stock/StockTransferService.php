@@ -3,12 +3,9 @@
 namespace App\Services\Stock;
 
 use App\Models\Item;
+use App\Models\Purchase;
 use App\Models\StockTransfer;
-use App\Models\StockTransferLine;
 use App\Models\User;
-use App\Models\Transaction;
-use App\Models\TransactionLine;
-use App\Enums\RecordType;
 use App\Support\TenantAuthorizer;
 use App\Support\TenantContext;
 use Illuminate\Support\Facades\DB;
@@ -80,18 +77,16 @@ class StockTransferService
                 ]);
             }
 
-            $purchase = Transaction::create([
+            $purchase = Purchase::create([
                 'tenant_id' => $this->context->tenantId(),
                 'branch_id' => $destination,
-                'type' => RecordType::Purchase,
                 'transacted_on' => $payload['transferred_on'],
                 'user_id' => $userId,
                 'stock_transfer_id' => $transfer->id,
             ]);
 
             foreach ($normalised as $line) {
-                TransactionLine::create([
-                    'transaction_id' => $purchase->id,
+                $purchase->lines()->create([
                     'item_id' => $line['item']->id,
                     'qty' => $line['qty'],
                     'unit_code' => $line['unit']->code,

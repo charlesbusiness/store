@@ -4,9 +4,10 @@ namespace Tests;
 
 use App\Models\Branch;
 use App\Models\Item;
+use App\Models\LedgerLine;
+use App\Models\Purchase;
+use App\Models\Sale;
 use App\Models\Tenant;
-use App\Models\Transaction;
-use App\Models\TransactionLine;
 use App\Models\Unit;
 use App\Models\User;
 use App\Support\TenantContext;
@@ -21,6 +22,7 @@ abstract class TestCase extends BaseTestCase
     use RefreshDatabase;
 
     protected ?Tenant $defaultTenant = null;
+
     protected ?Branch $defaultBranch = null;
 
     protected function setUp(): void
@@ -137,20 +139,20 @@ abstract class TestCase extends BaseTestCase
         ?string $date = null,
         ?float $cost = null,
         ?Branch $branch = null,
-    ): TransactionLine {
+    ): LedgerLine {
         $unit = $this->unit($unitCode);
         $baseQty = $qty * (float) $unit->base_multiplier;
         $isSale = $type === 'sale';
 
-        $transaction = Transaction::create([
+        $model = $isSale ? Sale::class : Purchase::class;
+
+        $transaction = $model::create([
             'tenant_id' => $item->tenant_id,
             'branch_id' => ($branch ?? $this->branch())->id,
-            'type' => $type,
             'transacted_on' => $date ?? Carbon::today()->toDateString(),
         ]);
 
-        return TransactionLine::create([
-            'transaction_id' => $transaction->id,
+        return $transaction->lines()->create([
             'item_id' => $item->id,
             'qty' => $qty,
             'unit_code' => $unitCode,

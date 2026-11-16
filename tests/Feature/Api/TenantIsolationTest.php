@@ -6,8 +6,8 @@ use App\Enums\ReportingMode;
 use App\Enums\StockManagementMode;
 use App\Models\Branch;
 use App\Models\Item;
+use App\Models\Sale;
 use App\Models\Tenant;
-use App\Models\Transaction;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -78,10 +78,9 @@ class TenantIsolationTest extends TestCase
     public function test_a_receipt_from_another_account_cannot_be_downloaded(): void
     {
         [$other, $branch] = $this->otherTenant();
-        $sale = Transaction::create([
+        $sale = Sale::create([
             'tenant_id' => $other->id,
             'branch_id' => $branch->id,
-            'type' => 'sale',
             'transacted_on' => '2026-10-24',
         ]);
 
@@ -106,7 +105,7 @@ class TenantIsolationTest extends TestCase
 
         $this->assertDatabaseHas('customer_names', [
             'tenant_id' => $this->tenant()->id,
-            'transaction_id' => $response->json('data.id'),
+            'sale_id' => $response->json('data.id'),
         ]);
     }
 

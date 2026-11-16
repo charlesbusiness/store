@@ -8,18 +8,18 @@ use App\Http\Requests\RecordTransactionRequest;
 use App\Http\Requests\UpdatePurchaseLineRequest;
 use App\Http\Resources\PurchaseResource;
 use App\Models\Item;
-use App\Models\Transaction;
-use App\Models\TransactionLine;
+use App\Models\Purchase;
+use App\Models\PurchaseLine;
 use App\Services\Record\LineNormalizer;
 use App\Services\Record\PurchaseRecorder;
 use App\Services\Record\RecordFormData;
 use App\Services\Stock\ActivityReader;
 use App\Support\Concerns\FormatsValues;
+use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
-use App\Support\TenantContext;
 
 class PurchaseController extends Controller
 {
@@ -73,24 +73,26 @@ class PurchaseController extends Controller
         ], 201);
     }
 
-    public function show(Transaction $purchase): JsonResponse
+    public function show(Purchase $purchase): JsonResponse
     {
         abort_unless($purchase->tenant_id === $this->context->tenantId(), 404);
         $purchase->load(['lines.item', 'lines.unit']);
+
         return response()->json(['data' => new PurchaseResource($purchase)]);
     }
 
-    public function destroy(Transaction $purchase): JsonResponse
+    public function destroy(Purchase $purchase): JsonResponse
     {
         abort_unless($purchase->tenant_id === $this->context->tenantId(), 404);
         $purchase->delete();
+
         return response()->json(['message' => 'Purchase deleted']);
     }
 
-    public function destroyLine(Transaction $purchase, TransactionLine $line): JsonResponse
+    public function destroyLine(Purchase $purchase, PurchaseLine $line): JsonResponse
     {
         abort_unless($purchase->tenant_id === $this->context->tenantId(), 404);
-        if ($line->transaction_id !== $purchase->id) {
+        if ($line->purchase_id !== $purchase->id) {
             return response()->json(['message' => 'Line not found in this purchase'], 404);
         }
 
@@ -110,14 +112,14 @@ class PurchaseController extends Controller
      * packs are fixed once written, so they are read from the stored line
      * rather than the request; only qty, cost and selling price can move.
      */
-    public function updateLine(UpdatePurchaseLineRequest $request, Transaction $purchase, TransactionLine $line): JsonResponse
+    public function updateLine(UpdatePurchaseLineRequest $request, Purchase $purchase, PurchaseLine $line): JsonResponse
     {
         abort_unless($purchase->tenant_id === $this->context->tenantId(), 404);
-        if ($line->transaction_id !== $purchase->id) {
+        if ($line->purchase_id !== $purchase->id) {
             return response()->json(['message' => 'Line not found in this purchase'], 404);
         }
 
-        DB::transaction(function () use ($request, $purchase, $line) {
+        DB::transaction(function () use ($request, $line) {
             $line->loadMissing('item');
             Item::where('tenant_id', $this->context->tenantId())->whereKey($line->item_id)->lockForUpdate()->get();
 

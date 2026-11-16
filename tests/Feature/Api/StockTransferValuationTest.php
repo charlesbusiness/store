@@ -4,7 +4,6 @@ namespace Tests\Feature\Api;
 
 use App\Enums\StockManagementMode;
 use App\Models\Branch;
-use App\Models\Transaction;
 use App\Services\Stock\StockTransferService;
 use Tests\TestCase;
 
@@ -44,10 +43,9 @@ class StockTransferValuationTest extends TestCase
             ])
             ->assertCreated();
 
-        $this->assertDatabaseHas('transactions', [
+        $this->assertDatabaseHas('purchases', [
             'branch_id' => $destination->id,
             'stock_transfer_id' => 1,
-            'type' => 'purchase',
         ]);
 
         $this->assertDatabaseHas('stock_transfer_lines', [

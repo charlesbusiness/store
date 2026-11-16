@@ -5,12 +5,11 @@ namespace Tests\Feature\Api;
 use App\Enums\ReportingMode;
 use App\Enums\StockManagementMode;
 use App\Models\Branch;
-use App\Models\Tenant;
-use App\Models\User;
 use App\Models\Item;
+use App\Models\Purchase;
+use App\Models\Tenant;
 use App\Models\Unit;
-use App\Models\Transaction;
-use App\Models\TransactionLine;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -35,10 +34,9 @@ class TenantDataVisibilityTest extends TestCase
         ]);
         $tenant->users()->attach($user, ['role' => 'owner', 'is_active' => true]);
         $branch->users()->attach($user);
-        Transaction::create([
+        Purchase::create([
             'tenant_id' => $tenant->id,
             'branch_id' => $branch->id,
-            'type' => 'purchase',
             'transacted_on' => now()->toDateString(),
         ]);
 
@@ -148,8 +146,8 @@ class TenantDataVisibilityTest extends TestCase
         $destination->users()->attach($user);
         $unit = Unit::factory()->create(['code' => 'transfer-pcs', 'family' => 'count', 'base_multiplier' => 1]);
         $item = Item::create(['tenant_id' => $tenant->id, 'name' => 'Transfer item', 'name_key' => 'transfer item', 'family' => 'count', 'default_unit_code' => $unit->code, 'is_active' => true]);
-        $transaction = Transaction::create(['tenant_id' => $tenant->id, 'branch_id' => $source->id, 'type' => 'purchase', 'transacted_on' => now()->toDateString()]);
-        TransactionLine::create(['transaction_id' => $transaction->id, 'item_id' => $item->id, 'qty' => 5, 'unit_code' => $unit->code, 'base_qty' => 5, 'unit_price' => 10, 'total' => 50]);
+        $purchase = Purchase::create(['tenant_id' => $tenant->id, 'branch_id' => $source->id, 'transacted_on' => now()->toDateString()]);
+        $purchase->lines()->create(['item_id' => $item->id, 'qty' => 5, 'unit_code' => $unit->code, 'base_qty' => 5, 'unit_price' => 10, 'total' => 50]);
         $token = $user->createToken('test')->plainTextToken;
         $headers = ['Authorization' => "Bearer {$token}", 'X-Tenant-ID' => $tenant->id, 'X-Branch-ID' => $source->id];
 

@@ -5,8 +5,8 @@ namespace Database\Seeders;
 use App\Enums\RecordType;
 use App\Enums\UnitFamily;
 use App\Models\Item;
-use App\Models\Transaction;
-use App\Models\TransactionLine;
+use App\Models\Purchase;
+use App\Models\Sale;
 use App\Models\Unit;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
@@ -121,14 +121,14 @@ class DemoLedgerSeeder extends Seeder
         $baseQty = $qty * (float) $unit->base_multiplier;
         $total ??= $qty * $unitPrice;
 
-        $transaction = DB::transaction(function () use ($type, $date, $item, $unit, $qty, $unitPrice, $total, $baseQty) {
-            $created = Transaction::create([
-                'type' => $type,
+        $model = $type === RecordType::Purchase ? Purchase::class : Sale::class;
+
+        DB::transaction(function () use ($model, $date, $item, $unit, $qty, $unitPrice, $total, $baseQty) {
+            $created = $model::create([
                 'transacted_on' => $date,
             ]);
 
-            TransactionLine::create([
-                'transaction_id' => $created->id,
+            $created->lines()->create([
                 'item_id' => $item->id,
                 'qty' => $qty,
                 'unit_code' => $unit->code,
@@ -136,8 +136,6 @@ class DemoLedgerSeeder extends Seeder
                 'unit_price' => $unitPrice ?? round($total / $qty, 6),
                 'total' => round($total, 2),
             ]);
-
-            return $created;
         });
     }
 

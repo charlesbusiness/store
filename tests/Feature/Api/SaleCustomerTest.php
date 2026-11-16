@@ -3,7 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Item;
-use App\Models\Transaction;
+use App\Models\Sale;
 use Tests\TestCase;
 
 class SaleCustomerTest extends TestCase
@@ -22,7 +22,7 @@ class SaleCustomerTest extends TestCase
         return $item;
     }
 
-    private function sale(?string $customerName = null): Transaction
+    private function sale(?string $customerName = null): Sale
     {
         $item = $this->item('Yam');
         $line = $this->recordLine($item, 'sale', 2, 'bag', 5000, '2026-10-24');
@@ -65,7 +65,7 @@ class SaleCustomerTest extends TestCase
             ->assertJsonPath('data.customer_name', 'Ada Obi');
 
         $this->assertDatabaseHas('customer_names', [
-            'transaction_id' => $response->json('data.id'),
+            'sale_id' => $response->json('data.id'),
             'name' => 'Ada Obi',
         ]);
     }
@@ -119,7 +119,7 @@ class SaleCustomerTest extends TestCase
             ->assertJsonPath('data.customer_name', 'Ada Obi');
 
         $this->assertDatabaseHas('customer_names', [
-            'transaction_id' => $sale->id,
+            'sale_id' => $sale->id,
             'name' => 'Ada Obi',
         ]);
     }
@@ -135,7 +135,7 @@ class SaleCustomerTest extends TestCase
 
         $this->assertDatabaseCount('customer_names', 1);
         $this->assertDatabaseHas('customer_names', [
-            'transaction_id' => $sale->id,
+            'sale_id' => $sale->id,
             'name' => 'Grace Eze',
         ]);
     }

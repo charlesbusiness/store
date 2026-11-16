@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class StockTransfer extends Model
 {
@@ -15,14 +16,33 @@ class StockTransfer extends Model
         return ['transferred_on' => 'date'];
     }
 
-    public function tenant(): BelongsTo { return $this->belongsTo(Tenant::class); }
-    public function sourceBranch(): BelongsTo { return $this->belongsTo(Branch::class, 'source_branch_id'); }
-    public function destinationBranch(): BelongsTo { return $this->belongsTo(Branch::class, 'destination_branch_id'); }
-    public function user(): BelongsTo { return $this->belongsTo(User::class); }
-    public function lines(): HasMany { return $this->hasMany(StockTransferLine::class); }
-
-    public function purchase(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function tenant(): BelongsTo
     {
-        return $this->hasOne(Transaction::class, 'stock_transfer_id');
+        return $this->belongsTo(Tenant::class);
+    }
+
+    public function sourceBranch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class, 'source_branch_id');
+    }
+
+    public function destinationBranch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class, 'destination_branch_id');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function lines(): HasMany
+    {
+        return $this->hasMany(StockTransferLine::class);
+    }
+
+    public function purchase(): HasOne
+    {
+        return $this->hasOne(Purchase::class, 'stock_transfer_id');
     }
 }
