@@ -184,11 +184,11 @@ class ActivityReader extends Service
         }
 
         if ($dateFrom !== null) {
-            $query->whereDate('transacted_on', '>=', $dateFrom->toDateString());
+            $query->where('transacted_on', '>=', $dateFrom->toDateString());
         }
 
         if ($dateTo !== null) {
-            $query->whereDate('transacted_on', '<=', $dateTo->toDateString());
+            $query->where('transacted_on', '<', $dateTo->addDay()->toDateString());
         }
 
         if ($type === RecordType::Sale && $paid !== null) {

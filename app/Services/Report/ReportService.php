@@ -167,8 +167,8 @@ class ReportService extends Service
             ->join('sales', 'sales.id', '=', 'sale_lines.sale_id')
             ->where('sales.tenant_id', $this->context->tenantId())
             ->when($scope === 'branch', fn ($query) => $query->where('sales.branch_id', $branchId))
-            ->whereDate('sales.transacted_on', '>=', $start->toDateString())
-            ->whereDate('sales.transacted_on', '<=', $end->toDateString())
+            ->where('sales.transacted_on', '>=', $start->toDateString())
+            ->where('sales.transacted_on', '<', $end->addDay()->toDateString())
             ->select('sale_lines.*')
             ->with(['item.displayUnit', 'unit', 'transaction'])
             ->get();
@@ -178,8 +178,8 @@ class ReportService extends Service
             ->where('purchases.tenant_id', $this->context->tenantId())
             ->when($scope !== 'branch', fn ($query) => $query->whereNull('purchases.stock_transfer_id'))
             ->when($scope === 'branch', fn ($query) => $query->where('purchases.branch_id', $branchId))
-            ->whereDate('purchases.transacted_on', '>=', $start->toDateString())
-            ->whereDate('purchases.transacted_on', '<=', $end->toDateString())
+            ->where('purchases.transacted_on', '>=', $start->toDateString())
+            ->where('purchases.transacted_on', '<', $end->addDay()->toDateString())
             ->select('purchase_lines.*')
             ->with(['item.displayUnit', 'unit', 'transaction'])
             ->get();
@@ -247,8 +247,8 @@ class ReportService extends Service
             ->where('stock_transfers.tenant_id', $this->context->tenantId())
             ->where('stock_transfers.status', 'completed')
             ->where('stock_transfers.destination_branch_id', $branchId)
-            ->whereDate('stock_transfers.transferred_on', '>=', $start->toDateString())
-            ->whereDate('stock_transfers.transferred_on', '<=', $end->toDateString())
+            ->where('stock_transfers.transferred_on', '>=', $start->toDateString())
+            ->where('stock_transfers.transferred_on', '<', $end->addDay()->toDateString())
             ->sum('stock_transfer_lines.total_cost');
 
         $outgoing = DB::table('stock_transfer_lines')
@@ -256,8 +256,8 @@ class ReportService extends Service
             ->where('stock_transfers.tenant_id', $this->context->tenantId())
             ->where('stock_transfers.status', 'completed')
             ->where('stock_transfers.source_branch_id', $branchId)
-            ->whereDate('stock_transfers.transferred_on', '>=', $start->toDateString())
-            ->whereDate('stock_transfers.transferred_on', '<=', $end->toDateString())
+            ->where('stock_transfers.transferred_on', '>=', $start->toDateString())
+            ->where('stock_transfers.transferred_on', '<', $end->addDay()->toDateString())
             ->sum('stock_transfer_lines.total_cost');
 
         return (float) $incoming - (float) $outgoing;
