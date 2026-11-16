@@ -105,8 +105,7 @@ nav a {
 }
 
 nav a.on {
-  background: var(--ac);
-  color: #fff;
+  color: var(--ac);
 }
 
 nav a:hover:not(.on) {
