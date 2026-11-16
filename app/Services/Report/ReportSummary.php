@@ -21,6 +21,7 @@ final readonly class ReportSummary
      * @param  array<int, array{item: Item, unit: Unit, base_qty: float, display_qty: float, total: float, cost: ?float, profit: ?float}>  $itemsSold
      * @param  array<int, array{item: Item, unit: Unit, base_qty: float, display_qty: float, total: float, cost: ?float, profit: ?float}>  $itemsBought
      * @param  float  $trendMax  the largest bar on the chart, never below 1
+     * @param  array<int, array{branch_id: int, name: string, sales: float, purchases: float, profit: ?float, stock_value: float, is_selected: bool}>  $branchBreakdown
      */
     public function __construct(
         public PeriodMode $mode,
@@ -34,7 +35,29 @@ final readonly class ReportSummary
         public array $itemsSold,
         public array $itemsBought,
         public ProfitSummary $profit,
+        public string $scope = 'account',
+        public array $branchBreakdown = [],
     ) {}
+
+    /** Attach the per-branch table without turning the snapshot into a mutable bag. */
+    public function withBranchBreakdown(array $branchBreakdown): self
+    {
+        return new self(
+            mode: $this->mode,
+            anchor: $this->anchor,
+            periodLabel: $this->periodLabel,
+            sales: $this->sales,
+            purchases: $this->purchases,
+            stockValue: $this->stockValue,
+            trend: $this->trend,
+            trendMax: $this->trendMax,
+            itemsSold: $this->itemsSold,
+            itemsBought: $this->itemsBought,
+            profit: $this->profit,
+            scope: $this->scope,
+            branchBreakdown: $branchBreakdown,
+        );
+    }
 
     /** Sales minus purchases, negative when the period spent more than it earned. */
     public function difference(): float

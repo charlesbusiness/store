@@ -12,14 +12,14 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withCommands([
+        __DIR__.'/../app/Console/Commands',
+    ])
     ->withMiddleware(function (Middleware $middleware): void {
         // Redirect unauthenticated users to login (handled by SPA)
         $middleware->redirectGuestsTo(fn () => '/login');
         
-        // Add Sanctum's EnsureFrontendRequestsAreStateful for SPA cookie auth
-        $middleware->api(prepend: [
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
-        ]);
+        $middleware->alias(['tenant.context' => \App\Http\Middleware\ResolveTenantContext::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->renderable(function (Throwable $e, Request $request) {
@@ -63,16 +63,6 @@ return Application::configure(basePath: dirname(__DIR__))
                     'method' => $request->method(),
                     'ip' => $request->ip(),
                 ]);
-
-                if (config('app.debug')) {
-                    return response()->json([
-                        'message' => $e->getMessage(),
-                        'exception' => get_class($e),
-                        'file' => $e->getFile(),
-                        'line' => $e->getLine(),
-                        'trace' => $e->getTrace(),
-                    ], $status);
-                }
 
                 return response()->json([
                     'message' => $message,

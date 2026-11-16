@@ -6,6 +6,7 @@ use App\Models\Item;
 use App\Models\Unit;
 use App\Support\Packs;
 use App\Support\Service;
+use App\Support\TenantContext;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -18,7 +19,10 @@ use Illuminate\Support\Facades\DB;
  */
 class PackReader extends Service
 {
-    public function __construct(private readonly UnitCatalog $units) {}
+    public function __construct(
+        private readonly UnitCatalog $units,
+        private readonly TenantContext $context,
+    ) {}
 
     /**
      * The current packs for each of these items, keyed by item id. Items with
@@ -38,14 +42,20 @@ class PackReader extends Service
         // The newest declared line per item, in a single query: the group by
         // finds each item's latest id, the outer query reads its declaration.
         $rows = DB::table('transaction_lines')
-            ->select('item_id', 'inner_units')
-            ->whereNotNull('inner_units')
-            ->whereIn('id', function ($query) use ($ids): void {
-                $query->selectRaw('MAX(id)')
+            ->join('transactions', 'transactions.id', '=', 'transaction_lines.transaction_id')
+            ->select('transaction_lines.item_id', 'transaction_lines.inner_units')
+            ->where('transactions.tenant_id', $this->context->tenantId())
+            ->when($this->context->branchRequired(), fn ($query) => $query->where('transactions.branch_id', $this->context->branchId()))
+            ->whereNotNull('transaction_lines.inner_units')
+            ->whereIn('transaction_lines.id', function ($query) use ($ids): void {
+                $query->selectRaw('MAX(transaction_lines.id)')
                     ->from('transaction_lines')
-                    ->whereNotNull('inner_units')
-                    ->whereIn('item_id', $ids)
-                    ->groupBy('item_id');
+                    ->join('transactions', 'transactions.id', '=', 'transaction_lines.transaction_id')
+                    ->where('transactions.tenant_id', $this->context->tenantId())
+                    ->when($this->context->branchRequired(), fn ($query) => $query->where('transactions.branch_id', $this->context->branchId()))
+                    ->whereNotNull('transaction_lines.inner_units')
+                    ->whereIn('transaction_lines.item_id', $ids)
+                    ->groupBy('transaction_lines.item_id');
             })
             ->get();
 

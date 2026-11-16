@@ -1,16 +1,29 @@
 import { NavLink } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import { useTheme } from '@/hooks/useTheme';
+import { Link } from 'react-router-dom';
+import { api } from '@/lib/api';
+import { queryClient } from '@/lib/queryClient';
 
 const navTabs = [
     { path: '/sales', label: 'Sales' },
     { path: '/purchases', label: 'Purchases' },
     { path: '/stock', label: 'Stock' },
+    { path: '/transfers', label: 'Transfers' },
 ];
 
 export function Header() {
-    const { user } = useAuthStore();
+    const { user, branches: storedBranches, activeBranchId, activeTenantId } = useAuthStore();
     const { theme, toggleTheme } = useTheme();
+
+    const branchesQuery = useQuery({
+        queryKey: ['branches', activeTenantId],
+        queryFn: () => api.get('/branches'),
+        enabled: Boolean(user && activeTenantId),
+    });
+
+    const branches = (branchesQuery.data?.data ?? storedBranches.filter((branch) => !activeTenantId || branch.tenant_id === activeTenantId)) as Array<{ id: number; name: string }>;
 
     if (!user) return null;
 
@@ -34,6 +47,12 @@ export function Header() {
                     </NavLink>
                 ))}
             </nav>
+            <div className="header-actions">
+                {branches.length > 0 && <select className="branch-select" value={activeBranchId ?? ''} onChange={(event) => { useAuthStore.setState({ activeBranchId: Number(event.target.value) }); queryClient.invalidateQueries(); }} aria-label="Branch">
+                    {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+                </select>}
+                <Link to="/settings" className="icon-btn" aria-label="Account settings">Settings</Link>
+            </div>
             <button
                 type="button"
                 className="icon-btn"

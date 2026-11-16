@@ -7,6 +7,7 @@ use App\Models\Item;
 use App\Models\TransactionLine;
 use App\Models\Unit;
 use App\Support\Packs;
+use App\Support\TenantContext;
 use Illuminate\Support\Collection;
 
 /**
@@ -30,6 +31,7 @@ class CostCalculator
         private readonly PackReader $packReader,
         private readonly StockLedger $ledger,
         private readonly UnitCatalog $units,
+        private readonly TenantContext $context,
     ) {}
 
     /**
@@ -282,6 +284,8 @@ class CostCalculator
             $rows = TransactionLine::query()
                 ->join('transactions', 'transactions.id', '=', 'transaction_lines.transaction_id')
                 ->where('transactions.type', RecordType::Purchase->value)
+                ->where('transactions.tenant_id', $this->context->tenantId())
+                ->when($this->context->branchRequired(), fn ($query) => $query->where('transactions.branch_id', $this->context->branchId()))
                 ->whereIn('transaction_lines.item_id', $missing)
                 ->orderByDesc('transactions.transacted_on')
                 ->orderByDesc('transaction_lines.id')

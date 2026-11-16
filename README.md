@@ -77,6 +77,32 @@ Prefer plain `php artisan serve`? That uses your `.env`, i.e. the real database.
 composer test
 ```
 
+## Migrating Existing Data To Tenancy
+
+Run the normal migrations, then backfill the existing records into one tenant
+and a default branch. This command does not reset or delete any data and is
+safe to run more than once:
+
+```bash
+sh scripts/migrate-tenancy.sh
+```
+
+Preview the changes first:
+
+```bash
+sh scripts/migrate-tenancy.sh --dry-run
+```
+
+Use explicit records when the first user or tenant should not be selected:
+
+```bash
+sh scripts/migrate-tenancy.sh --owner=1 --tenant-name="Acme Stores" --branch-name="Main Shop" --branch-code=main
+```
+
+The script runs `php artisan migrate --force`, then assigns unowned items,
+transactions and customers to the selected tenant. Existing transactions are
+assigned to the default branch. It never runs `migrate:fresh`.
+
 `phpunit.xml` pins the suite to `DB_CONNECTION=sqlite` with `:memory:`, so the
 tests cannot connect to MySQL whatever `.env` says. Each test builds its own data
 on a throwaway in-memory database and never touches `database/database.sqlite`.

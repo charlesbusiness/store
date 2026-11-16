@@ -5,13 +5,19 @@ namespace App\Http\Controllers\Api;
 use App\Enums\PeriodMode;
 use App\Http\Controllers\Controller;
 use App\Services\Report\ReportService;
+use App\Support\TenantAuthorizer;
+use App\Support\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ReportController extends Controller
 {
-    public function __construct(private readonly ReportService $reports) {}
+    public function __construct(
+        private readonly ReportService $reports,
+        private readonly TenantContext $context,
+        private readonly TenantAuthorizer $authorizer,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -27,8 +33,30 @@ class ReportController extends Controller
                 ? CarbonImmutable::createFromFormat('Y-m-d', $request->query('anchor')) 
                 : CarbonImmutable::today());
 
-        $summary = $this->reports->summary($mode, $anchor, $hasCustomRange ? $dateRange : null);
-        
+        [$scope, $branchId] = $this->scope($request);
+
+        $summary = $this->reports->summary(
+            $mode,
+            $anchor,
+            $hasCustomRange ? $dateRange : null,
+            $scope,
+            $branchId,
+        );
+
+        $branches = $this->authorizer->allowedBranches($request->user(), $this->context->tenant());
+
+        if ($scope === 'account' && $branches->count() > 1) {
+            $summary = $summary->withBranchBreakdown(
+                $this->reports->branchBreakdown(
+                    $mode,
+                    $anchor,
+                    $hasCustomRange ? $dateRange : null,
+                    $branches,
+                    $scope === 'branch' ? $branchId : null,
+                )
+            );
+        }
+
         return response()->json(['data' => $summary]);
     }
 
@@ -39,9 +67,22 @@ class ReportController extends Controller
             ? CarbonImmutable::createFromFormat('Y-m-d', $request->query('anchor')) 
             : CarbonImmutable::today();
         
-        $trend = $this->reports->trend($mode, $anchor);
-        
+        [$scope, $branchId] = $this->scope($request);
+
+        $trend = $this->reports->trend($mode, $anchor, $scope, $branchId);
+
         return response()->json(['data' => $trend]);
+    }
+
+    /** @return array{0: string, 1: ?int} */
+    private function scope(Request $request): array
+    {
+        $requested = (string) $request->query('scope', '');
+        $scope = in_array($requested, ['account', 'branch'], true)
+            ? $requested
+            : $this->context->tenant()->reporting_mode->value;
+
+        return [$scope, $scope === 'branch' ? $this->context->branchId() : null];
     }
 
     private function parseDateRange(Request $request): array

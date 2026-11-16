@@ -22,6 +22,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use App\Support\TenantContext;
 
 class SaleController extends Controller
 {
@@ -31,6 +32,7 @@ class SaleController extends Controller
         private readonly RecordFormData $formData,
         private readonly ActivityReader $activity,
         private readonly AvailabilityChecker $availability,
+        private readonly TenantContext $context,
     ) {}
 
     /**
@@ -101,6 +103,7 @@ class SaleController extends Controller
 
     public function show(Transaction $sale): JsonResponse
     {
+        abort_unless($sale->tenant_id === $this->context->tenantId(), 404);
         $sale->load(['customerName', 'lines.item', 'lines.unit']);
 
         return response()->json(['data' => new SaleResource($sale)]);
@@ -108,6 +111,7 @@ class SaleController extends Controller
 
     public function updateCustomer(UpdateSaleCustomerRequest $request, Transaction $sale): JsonResponse
     {
+        abort_unless($sale->tenant_id === $this->context->tenantId(), 404);
         abort_unless($sale->isSale(), 404);
 
         $name = $request->customerName();
@@ -128,6 +132,7 @@ class SaleController extends Controller
 
     public function destroy(Transaction $sale): JsonResponse
     {
+        abort_unless($sale->tenant_id === $this->context->tenantId(), 404);
         $sale->delete();
 
         return response()->json(['message' => 'Sale deleted']);
@@ -135,6 +140,7 @@ class SaleController extends Controller
 
     public function destroyLine(Transaction $sale, TransactionLine $line): JsonResponse
     {
+        abort_unless($sale->tenant_id === $this->context->tenantId(), 404);
         if ($line->transaction_id !== $sale->id) {
             return response()->json(['message' => 'Line not found in this sale'], 404);
         }
@@ -152,6 +158,7 @@ class SaleController extends Controller
 
     public function markPaid(Transaction $sale): JsonResponse
     {
+        abort_unless($sale->tenant_id === $this->context->tenantId(), 404);
         $sale->update(['paid' => true]);
 
         return response()->json(['message' => 'Sale marked as paid']);
@@ -168,13 +175,14 @@ class SaleController extends Controller
      */
     public function updateLine(UpdateSaleLineRequest $request, Transaction $sale, TransactionLine $line): JsonResponse
     {
+        abort_unless($sale->tenant_id === $this->context->tenantId(), 404);
         if ($line->transaction_id !== $sale->id) {
             return response()->json(['message' => 'Line not found in this sale'], 404);
         }
 
         DB::transaction(function () use ($request, $line) {
             $line->loadMissing('item');
-            Item::whereKey($line->item_id)->lockForUpdate()->get();
+            Item::where('tenant_id', $this->context->tenantId())->whereKey($line->item_id)->lockForUpdate()->get();
 
             $item = $line->item;
 

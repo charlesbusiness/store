@@ -29,7 +29,7 @@ export default function Stock() {
 
     const { data: response } = useQuery<StockApiResponse>({
         queryKey: ['stock'],
-        queryFn: () => api.get('/stock'),
+        queryFn: () => api.get('/stock', { params: { traded_only: 1 } }),
     });
 
     const positions = response?.data || [];

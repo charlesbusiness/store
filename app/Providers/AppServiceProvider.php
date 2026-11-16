@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Support\DatabaseResetGuard;
+use App\Support\TenantContext;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
@@ -12,7 +13,7 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        $this->app->scoped(TenantContext::class, fn () => new TenantContext);
     }
 
     public function boot(): void

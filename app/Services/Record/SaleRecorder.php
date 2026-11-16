@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Collection as BaseCollection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use App\Support\TenantContext;
 
 /**
  * Records a sale. Sales may only draw on stock that already exists, and may
@@ -26,8 +27,9 @@ class SaleRecorder extends RecordWriter
         AvailabilityChecker $availability,
         private readonly StockLedger $ledger,
         private readonly CostCalculator $costCalculator,
+        TenantContext $context,
     ) {
-        parent::__construct($normalizer, $availability);
+        parent::__construct($normalizer, $availability, $context);
     }
 
     public function type(): RecordType
@@ -49,7 +51,7 @@ class SaleRecorder extends RecordWriter
             return;
         }
 
-        $transaction->customerName()->create(['name' => $name]);
+        $transaction->customerName()->create(['tenant_id' => $transaction->tenant_id, 'name' => $name]);
     }
 
     /**
@@ -93,7 +95,9 @@ class SaleRecorder extends RecordWriter
 
         foreach (array_values($rows) as $index => $row) {
             $row = (array) $row;
-            $item = Item::with('displayUnit')->find((int) ($row['item_id'] ?? 0));
+            $item = Item::with('displayUnit')
+                ->where('tenant_id', $this->context->tenantId())
+                ->find((int) ($row['item_id'] ?? 0));
 
             if (! $item) {
                 throw ValidationException::withMessages([

@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 
 type Mode = 'd' | 'w' | 'm';
+type Scope = 'account' | 'branch';
 
 const MODES: Mode[] = ['d', 'w', 'm'];
 
@@ -40,6 +41,16 @@ interface ProfitSummary {
     margin: number | null;
 }
 
+interface BranchBreakdownRow {
+    branch_id: number;
+    name: string;
+    sales: number;
+    purchases: number;
+    profit: number | null;
+    stock_value: number;
+    is_selected: boolean;
+}
+
 interface ReportSummary {
     mode: Mode;
     anchor: string;
@@ -52,6 +63,8 @@ interface ReportSummary {
     itemsSold: ItemRow[];
     itemsBought: ItemRow[];
     profit: ProfitSummary;
+    scope: Scope;
+    branchBreakdown: BranchBreakdownRow[];
 }
 
 const formatMoney = (value: number) => {
@@ -118,6 +131,9 @@ export default function Reports() {
     const mode: Mode = MODES.includes(modeParam as Mode) ? (modeParam as Mode) : 'd';
     const startDate = searchParams.get('start_date') ?? '';
     const endDate = searchParams.get('end_date') ?? '';
+    const scopeParam = searchParams.get('scope');
+    const requestedScope: Scope | undefined =
+        scopeParam === 'account' || scopeParam === 'branch' ? scopeParam : undefined;
 
     // The inputs are edited locally so a half-typed date never reaches the
     // server, and are pulled back from the URL when the range changes.
@@ -134,16 +150,17 @@ export default function Reports() {
     if (startDate) params.set('start_date', startDate);
     if (endDate) params.set('end_date', endDate);
     if (!startDate && !endDate) params.set('anchor', anchor);
+    if (requestedScope) params.set('scope', requestedScope);
 
     const { data: report, isLoading } = useQuery<{ data: ReportSummary }>({
-        queryKey: ['report', mode, startDate, endDate, anchor],
+        queryKey: ['report', mode, startDate, endDate, anchor, requestedScope],
         queryFn: () => api.get('/reports', { params }),
     });
 
     const summary = report?.data;
 
     const applyRange = (
-        next: { mode: Mode; startDate: string; endDate: string },
+        next: { mode: Mode; startDate: string; endDate: string; scope?: Scope },
         options?: { replace?: boolean },
     ) => {
         const nextParams = new URLSearchParams();
@@ -151,12 +168,15 @@ export default function Reports() {
         if (next.startDate) nextParams.set('start_date', next.startDate);
         if (next.endDate) nextParams.set('end_date', next.endDate);
 
+        const scope = next.scope ?? requestedScope;
+        if (scope) nextParams.set('scope', scope);
+
         setSearchParams(nextParams, options);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        applyRange({ mode, ...range });
+        applyRange({ mode, ...range, scope: requestedScope });
     };
 
     const formatPercent = (ratio: number) => {
@@ -226,6 +246,30 @@ export default function Reports() {
                             />
                         </label>
                     </div>
+                    <div className="sg flex w-full gap-2 sm:w-auto">
+                        {(['account', 'branch'] as Scope[]).map((scope) => {
+                            const active = (requestedScope ?? summary?.scope ?? 'account') === scope;
+                            return (
+                                <label key={scope} className="inline-flex flex-1 cursor-pointer items-center sm:flex-none">
+                                    <input
+                                        type="radio"
+                                        name="scope"
+                                        value={scope}
+                                        checked={active}
+                                        onChange={() => applyRange({ mode, ...range, scope }, { replace: true })}
+                                        className="sr-only"
+                                    />
+                                    <span className={`w-full px-3 py-2 text-center rounded text-sm font-semibold transition-colors border-2 ${
+                                        active
+                                            ? 'bg-blue-600 text-white border-blue-600'
+                                            : 'bg-white text-gray-900 border-gray-300 hover:bg-gray-50'
+                                    }`}>
+                                         {scope === 'account' ? 'All branches' : 'Current branch'}
+                                    </span>
+                                </label>
+                            );
+                        })}
+                    </div>
                     <button type="submit" className="btn sm w-full sm:w-auto">Go</button>
                     <span className="mut text-sm text-gray-500 break-words sm:whitespace-nowrap">
                         {summary?.periodLabel}
@@ -290,6 +334,47 @@ export default function Reports() {
                             </strong>
                         </div>
                     </div>
+
+                    {summary.branchBreakdown.length > 1 && (
+                        <div className="card mb-4 min-w-0 overflow-hidden sm:mb-6">
+                            <h2 className="text-lg font-semibold px-3 py-3 sm:px-4 sm:py-4 border-b">
+                                By branch
+                            </h2>
+                            <div className="sc overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b">
+                                            <th className="text-left p-3">Branch</th>
+                                            <th className="text-right p-3">Sales</th>
+                                            <th className="text-right p-3">Purchases</th>
+                                            <th className="text-right p-3">Profit</th>
+                                            <th className="text-right p-3">Stock value</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {summary.branchBreakdown.map((row) => (
+                                            <tr
+                                                key={row.branch_id}
+                                                className={`border-b hover:bg-gray-50 ${row.is_selected ? 'bg-blue-50 font-semibold' : ''}`}
+                                            >
+                                                <td className="p-3">{row.name}</td>
+                                                <td className="text-right p-3 tabular-nums">{formatMoney(row.sales)}</td>
+                                                <td className="text-right p-3 tabular-nums">{formatMoney(row.purchases)}</td>
+                                                <td className="text-right p-3 tabular-nums">
+                                                    {row.profit === null ? '—' : (
+                                                        <span className={row.profit < 0 ? 'text-red-600' : 'text-green-600'}>
+                                                            {formatMoney(row.profit)}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="text-right p-3 tabular-nums">{formatMoney(row.stock_value)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="card mb-4 min-w-0 overflow-hidden sm:mb-6">
                         <h2 className="text-lg font-semibold px-3 py-3 sm:px-4 sm:py-4 border-b">Trend</h2>

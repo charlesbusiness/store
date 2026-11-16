@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\RecordType;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -25,7 +26,9 @@ use Illuminate\Support\Collection;
  */
 class Transaction extends Model
 {
-    protected $fillable = ['type', 'transacted_on', 'user_id', 'paid'];
+    use HasFactory;
+
+    protected $fillable = ['tenant_id', 'branch_id', 'type', 'transacted_on', 'user_id', 'paid', 'stock_transfer_id'];
 
     protected $appends = ['total', 'cost', 'profit'];
 
@@ -51,6 +54,26 @@ class Transaction extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    public function stockTransfer(): BelongsTo
+    {
+        return $this->belongsTo(StockTransfer::class);
+    }
+
+    public function isInternalTransfer(): bool
+    {
+        return $this->stock_transfer_id !== null;
     }
 
     public function total(): float

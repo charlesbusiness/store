@@ -5,9 +5,9 @@ namespace App\Models;
 use App\Enums\UnitFamily;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Something being traded.
@@ -32,7 +32,7 @@ class Item extends Model
 {
     use HasFactory;
     protected $fillable = [
-        'name', 'name_key', 'family', 'default_unit_code', 'pack_size', 'notes', 'is_active',
+        'tenant_id', 'name', 'name_key', 'family', 'default_unit_code', 'pack_size', 'notes', 'is_active',
     ];
 
     protected function casts(): array
@@ -41,6 +41,11 @@ class Item extends Model
             'family' => UnitFamily::class,
             'is_active' => 'boolean',
         ];
+    }
+
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
     }
 
     /** The unit this item is normally traded in -- a bag, a crate, a dozen. */

@@ -7,6 +7,7 @@ use App\Models\Item;
 use App\Models\Unit;
 use App\Support\Packs;
 use App\Support\Service;
+use App\Support\TenantContext;
 use Illuminate\Support\Collection;
 
 /**
@@ -21,6 +22,7 @@ class AvailabilityChecker extends Service
     public function __construct(
         private readonly UnitCatalog $units,
         private readonly StockLedger $ledger,
+        private readonly TenantContext $context,
     ) {}
 
     /**
@@ -138,7 +140,10 @@ class AvailabilityChecker extends Service
         }
 
         $positions = $this->ledger->positions(
-            Item::with('displayUnit')->whereIn('id', array_keys($requested))->get()
+            Item::with('displayUnit')
+                ->where('tenant_id', $this->context->tenantId())
+                ->whereIn('id', array_keys($requested))
+                ->get()
         );
 
         $shortfalls = [];

@@ -9,24 +9,39 @@ use App\Http\Controllers\Api\SaleController;
 use App\Http\Controllers\Api\StockController;
 use App\Http\Controllers\Api\UnitController;
 use App\Http\Controllers\Api\UploadController;
+use App\Http\Controllers\Api\TenantController;
+use App\Http\Controllers\Api\BranchController;
+use App\Http\Controllers\Api\StockTransferController;
 use App\Http\Controllers\ReceiptController;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
 // Public auth routes
 Route::post('/auth/login', [AuthController::class, 'login']);
+Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/auth/verify-reset-otp', [AuthController::class, 'verifyPasswordOtp']);
+Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
+Route::post('/auth/accept-invite', [AuthController::class, 'acceptInvitation']);
 Route::post('/auth/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 Route::get('/auth/user', [AuthController::class, 'user'])->middleware('auth:sanctum');
 Route::post('/auth/refresh', [AuthController::class, 'refresh'])->middleware('auth:sanctum');
 
 // Protected API routes
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'tenant.context'])->group(function () {
+    Route::get('/tenant', [TenantController::class, 'current']);
+    Route::patch('/tenant', [TenantController::class, 'update']);
+    Route::get('/tenant/members', [TenantController::class, 'members']);
+    Route::post('/tenant/members', [TenantController::class, 'storeMember']);
+    Route::patch('/tenant/members/{user}', [TenantController::class, 'updateMember']);
+    Route::put('/tenant/members/{user}/branches', [TenantController::class, 'updateMemberBranches']);
+    Route::post('/tenant/members/{user}/invite', [TenantController::class, 'resendInvite']);
+    Route::apiResource('branches', BranchController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::get('/transfers', [StockTransferController::class, 'index']);
+    Route::post('/transfers', [StockTransferController::class, 'store']);
     // Items
     Route::apiResource('items', ItemController::class);
 
     // Units
-    Route::apiResource('units', UnitController::class);
+    Route::apiResource('units', UnitController::class)->only(['index', 'show']);
 
     // Purchases
     Route::get('/purchases', [PurchaseController::class, 'index']);
@@ -61,15 +76,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Stock
     Route::get('/stock', [StockController::class, 'index']);
 
-    // Broadcast auth
-    Route::post('/broadcasting/auth', function (Request $request) {
-        return broadcast($request->all());
-    });
-
     // File uploads
     Route::post('/upload', [UploadController::class, 'store']);
     Route::delete('/upload', [UploadController::class, 'destroy']);
 });
-
-// Broadcast auth for private channels
-Broadcast::routes(['middleware' => 'auth:sanctum']);

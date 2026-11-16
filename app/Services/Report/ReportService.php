@@ -4,6 +4,7 @@ namespace App\Services\Report;
 
 use App\Enums\PeriodMode;
 use App\Enums\RecordType;
+use App\Models\Branch;
 use App\Models\Item;
 use App\Models\TransactionLine;
 use App\Models\Unit;
@@ -11,6 +12,8 @@ use App\Services\Stock\StockLedger;
 use App\Support\Service;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use App\Support\TenantContext;
 
 /**
  * The entry point for the reports page: one call, one snapshot.
@@ -29,30 +32,36 @@ class ReportService extends Service
         private readonly TrendSeriesBuilder $trend,
         private readonly StockLedger $ledger,
         private readonly ProfitCalculator $profit,
+        private readonly TenantContext $context,
     ) {}
 
     /**
      * @param  ?array{0: CarbonImmutable, 1: CarbonImmutable}  $dateRange  [start, end]
      */
-    public function summary(PeriodMode $mode, CarbonImmutable $anchor, ?array $dateRange = null): ReportSummary
-    {
+    public function summary(
+        PeriodMode $mode,
+        CarbonImmutable $anchor,
+        ?array $dateRange = null,
+        string $scope = 'account',
+        ?int $branchId = null,
+    ): ReportSummary {
         $current = $dateRange
             ? $this->bucketForEnd($mode, $anchor)
             : $this->buckets->current($mode, $anchor);
 
-        $lines = $this->windowLines($mode, $anchor, $dateRange);
-
-        $inPeriod = $dateRange
-            ? $lines // All lines in the custom range
-            : $lines->filter(
-                fn (TransactionLine $line) => $mode->bucketKey($line->transaction->transacted_on->toImmutable()) === $current['key']
-            );
+        $lines = $this->windowLines($mode, $anchor, $dateRange, $scope, $branchId);
+        $inPeriod = $this->periodLines($mode, $anchor, $dateRange, $lines);
+        $purchaseTotal = $this->purchaseTotal($inPeriod, $scope, $branchId, $mode, $anchor, $dateRange);
 
         $seriesBuckets = $dateRange
             ? $this->buckets->bucketsForRange($mode, $dateRange[0], $dateRange[1])
             : $this->buckets->buckets($mode, $anchor);
 
         $series = $this->trend->build($seriesBuckets, $lines, $mode);
+
+        $stockValue = $scope === 'branch'
+            ? $this->ledger->totalStockValueForBranch((int) $branchId)
+            : $this->ledger->totalStockValueForAccount();
 
         return new ReportSummary(
             mode: $mode,
@@ -61,13 +70,67 @@ class ReportService extends Service
                 ? $this->periodLabelForRange($mode, $dateRange[0], $dateRange[1])
                 : $current['label'],
             sales: $this->totalOf($inPeriod, RecordType::Sale),
-            purchases: $this->totalOf($inPeriod, RecordType::Purchase),
-            stockValue: $this->ledger->totalStockValue(),
+            purchases: $purchaseTotal,
+            stockValue: $stockValue,
             trend: $series,
             trendMax: $this->trend->peak($series),
             itemsSold: $this->itemTotals($inPeriod, RecordType::Sale),
             itemsBought: $this->itemTotals($inPeriod, RecordType::Purchase),
             profit: $this->profit->forLines($inPeriod),
+            scope: $scope,
+        );
+    }
+
+    /**
+     * The same headline figures for every branch the user can see, so an
+     * account-wide report can show where the money came from.
+     *
+     * @param  Collection<int, Branch>  $branches
+     * @return array<int, array{branch_id: int, name: string, sales: float, purchases: float, profit: ?float, stock_value: float, is_selected: bool}>
+     */
+    public function branchBreakdown(
+        PeriodMode $mode,
+        CarbonImmutable $anchor,
+        ?array $dateRange,
+        Collection $branches,
+        ?int $selectedBranchId = null,
+    ): array {
+        $rows = [];
+
+        foreach ($branches as $branch) {
+            $lines = $this->windowLines($mode, $anchor, $dateRange, 'branch', $branch->id);
+            $inPeriod = $this->periodLines($mode, $anchor, $dateRange, $lines);
+            $profit = $this->profit->forLines($inPeriod);
+
+            $rows[] = [
+                'branch_id' => $branch->id,
+                'name' => $branch->name,
+                'sales' => $this->totalOf($inPeriod, RecordType::Sale),
+                'purchases' => round(
+                    $this->totalOf($inPeriod, RecordType::Purchase)
+                        + $this->transferPurchaseAdjustment($mode, $anchor, $dateRange, $branch->id),
+                    2,
+                ),
+                'profit' => $profit->profit ?? $profit->knownProfit,
+                'stock_value' => $this->ledger->totalStockValueForBranch($branch->id),
+                'is_selected' => $branch->id === $selectedBranchId,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /** @param  Collection<int, TransactionLine>  $lines */
+    private function periodLines(PeriodMode $mode, CarbonImmutable $anchor, ?array $dateRange, Collection $lines): Collection
+    {
+        if ($dateRange) {
+            return $lines;
+        }
+
+        $current = $this->buckets->current($mode, $anchor);
+
+        return $lines->filter(
+            fn (TransactionLine $line) => $mode->bucketKey($line->transaction->transacted_on->toImmutable()) === $current['key']
         );
     }
 
@@ -78,8 +141,13 @@ class ReportService extends Service
      * @param  ?array{0: CarbonImmutable, 1: CarbonImmutable}  $dateRange  [start, end]
      * @return Collection<int, TransactionLine>
      */
-    private function windowLines(PeriodMode $mode, CarbonImmutable $anchor, ?array $dateRange = null): Collection
-    {
+    private function windowLines(
+        PeriodMode $mode,
+        CarbonImmutable $anchor,
+        ?array $dateRange = null,
+        string $scope = 'account',
+        ?int $branchId = null,
+    ): Collection {
         if ($dateRange) {
             $start = $dateRange[0];
             $end = $dateRange[1];
@@ -90,6 +158,9 @@ class ReportService extends Service
 
         return TransactionLine::query()
             ->join('transactions', 'transactions.id', '=', 'transaction_lines.transaction_id')
+            ->where('transactions.tenant_id', $this->context->tenantId())
+            ->when($scope !== 'branch', fn ($query) => $query->whereNull('transactions.stock_transfer_id'))
+            ->when($scope === 'branch', fn ($query) => $query->where('transactions.branch_id', $branchId))
             ->whereDate('transactions.transacted_on', '>=', $start->toDateString())
             ->whereDate('transactions.transacted_on', '<=', $end->toDateString())
             ->select('transaction_lines.*')
@@ -123,6 +194,52 @@ class ReportService extends Service
             $lines->filter(fn (TransactionLine $line) => $line->transaction->type === $type)->sum('total'),
             2
         );
+    }
+
+    private function purchaseTotal(
+        Collection $lines,
+        string $scope,
+        ?int $branchId,
+        PeriodMode $mode,
+        CarbonImmutable $anchor,
+        ?array $dateRange,
+    ): float {
+        $total = $this->totalOf($lines, RecordType::Purchase);
+
+        if ($scope !== 'branch' || $branchId === null) {
+            return $total;
+        }
+
+        return round($total + $this->transferPurchaseAdjustment($mode, $anchor, $dateRange, $branchId), 2);
+    }
+
+    private function transferPurchaseAdjustment(
+        PeriodMode $mode,
+        CarbonImmutable $anchor,
+        ?array $dateRange,
+        int $branchId,
+    ): float {
+        [$start, $end] = $dateRange ?? $mode->bucketRange($anchor);
+
+        $incoming = DB::table('stock_transfer_lines')
+            ->join('stock_transfers', 'stock_transfers.id', '=', 'stock_transfer_lines.stock_transfer_id')
+            ->where('stock_transfers.tenant_id', $this->context->tenantId())
+            ->where('stock_transfers.status', 'completed')
+            ->where('stock_transfers.destination_branch_id', $branchId)
+            ->whereDate('stock_transfers.transferred_on', '>=', $start->toDateString())
+            ->whereDate('stock_transfers.transferred_on', '<=', $end->toDateString())
+            ->sum('stock_transfer_lines.total_cost');
+
+        $outgoing = DB::table('stock_transfer_lines')
+            ->join('stock_transfers', 'stock_transfers.id', '=', 'stock_transfer_lines.stock_transfer_id')
+            ->where('stock_transfers.tenant_id', $this->context->tenantId())
+            ->where('stock_transfers.status', 'completed')
+            ->where('stock_transfers.source_branch_id', $branchId)
+            ->whereDate('stock_transfers.transferred_on', '>=', $start->toDateString())
+            ->whereDate('stock_transfers.transferred_on', '<=', $end->toDateString())
+            ->sum('stock_transfer_lines.total_cost');
+
+        return (float) $incoming - (float) $outgoing;
     }
 
     /**
@@ -191,10 +308,10 @@ class ReportService extends Service
         return $rows;
     }
 
-    public function trend(PeriodMode $mode, CarbonImmutable $anchor): array
+    public function trend(PeriodMode $mode, CarbonImmutable $anchor, string $scope = 'account', ?int $branchId = null): array
     {
         $buckets = $this->buckets->buckets($mode, $anchor);
-        $lines = $this->windowLines($mode, $anchor);
+        $lines = $this->windowLines($mode, $anchor, null, $scope, $branchId);
         return $this->trend->build($buckets, $lines, $mode);
     }
 }

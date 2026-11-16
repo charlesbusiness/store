@@ -30,6 +30,7 @@ interface Purchase {
     transacted_on: string;
     total: number;
     lines: LineItem[];
+    is_internal_transfer?: boolean;
 }
 
 const lineSchema = z.object({
@@ -53,6 +54,15 @@ const purchaseSchema = z.object({
     transacted_on: z.string().min(1, 'Date required'),
     lines: z.array(lineSchema).min(1, 'At least one line required'),
 });
+
+const formatDate = (value: string) => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+    });
+};
 
 export default function Purchases() {
     const queryClient = useQueryClient();
@@ -251,9 +261,9 @@ export default function Purchases() {
                     </thead>
                     <tbody>
                         {purchases?.data?.map((purchase: Purchase) => (
-                            <tr key={purchase.id} className="border-b hover:bg-gray-50">
-                                <td className="p-3">{purchase.transacted_on}</td>
-                                <td className="p-3">{purchase.total}</td>
+                             <tr key={purchase.id} className="border-b hover:bg-gray-50">
+                                  <td className="p-3">{formatDate(purchase.transacted_on)}</td>
+                                 <td className="p-3">{purchase.total}{purchase.is_internal_transfer && <span className="ml-2 tag mute">Internal transfer</span>}</td>
                                 <td className="p-3">{purchase.lines?.length} lines</td>
                                 <td className="p-3 text-right">
                                     <button onClick={() => { setEditingId(purchase.id); setShowForm(true); }} className="btn alt xs mr-1">Edit</button>

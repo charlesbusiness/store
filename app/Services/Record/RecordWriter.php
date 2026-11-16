@@ -13,6 +13,7 @@ use App\Support\Service;
 use Illuminate\Support\Collection as BaseCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use App\Support\TenantContext;
 
 /**
  * Shared machinery for recording a sale or a purchase.
@@ -29,6 +30,7 @@ abstract class RecordWriter extends Service
     public function __construct(
         protected readonly LineNormalizer $normalizer,
         protected readonly AvailabilityChecker $availability,
+        protected readonly TenantContext $context,
     ) {}
 
     /** Which side of the ledger this writer records. */
@@ -71,6 +73,8 @@ abstract class RecordWriter extends Service
 
             $transaction = Transaction::create([
                 'type' => $this->type(),
+                'tenant_id' => $this->context->tenantId(),
+                'branch_id' => $this->context->requireBranch(),
                 'transacted_on' => $payload['transacted_on'],
                 'user_id' => $user?->id,
             ]);
@@ -131,7 +135,7 @@ abstract class RecordWriter extends Service
         $ids = $lines->pluck('item.id')->unique()->sort()->values();
 
         if ($ids->isNotEmpty()) {
-            Item::whereIn('id', $ids)->lockForUpdate()->get();
+            Item::where('tenant_id', $this->context->tenantId())->whereIn('id', $ids)->lockForUpdate()->get();
         }
     }
 

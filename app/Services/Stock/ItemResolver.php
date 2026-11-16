@@ -7,6 +7,7 @@ use App\Models\Unit;
 use App\Support\Packs;
 use App\Support\Service;
 use Illuminate\Support\Collection;
+use App\Support\TenantContext;
 
 /**
  * Turns a typed name into an Item.
@@ -17,7 +18,7 @@ use Illuminate\Support\Collection;
  */
 class ItemResolver extends Service
 {
-    public function __construct(private readonly UnitCatalog $units) {}
+    public function __construct(private readonly UnitCatalog $units, private readonly TenantContext $context) {}
 
     /**
      * Find an item by name, case-insensitively.
@@ -26,12 +27,12 @@ class ItemResolver extends Service
     {
         $key = Item::nameKey($name);
 
-        return $key === '' ? null : Item::with('displayUnit')->where('name_key', $key)->first();
+        return $key === '' ? null : Item::with('displayUnit')->where('tenant_id', $this->context->tenantId())->where('name_key', $key)->first();
     }
 
     public function findById(int $id): ?Item
     {
-        return Item::with('displayUnit')->find($id);
+        return Item::with('displayUnit')->where('tenant_id', $this->context->tenantId())->find($id);
     }
 
     /**
@@ -51,6 +52,7 @@ class ItemResolver extends Service
 
         return Item::create([
             'name' => $name,
+            'tenant_id' => $this->context->tenantId(),
             'name_key' => Item::nameKey($name),
             'family' => $unit->family,
             'default_unit_code' => $unit->is_fraction && ! $this->isBaseUnit($unit)
@@ -69,7 +71,7 @@ class ItemResolver extends Service
      */
     public function sellable(StockLedger $ledger, ActivityReader $activity, PackReader $packs): Collection
     {
-        $positions = $ledger->positions(Item::active()->get())
+        $positions = $ledger->positions(Item::active()->where('tenant_id', $this->context->tenantId())->get())
             ->filter(fn (ItemPosition $position) => $this->hasStockLeft($position));
 
         $items = $positions->map(fn (ItemPosition $p) => $p->item);
@@ -87,7 +89,7 @@ class ItemResolver extends Service
     /** All items, for the purchase form's datalist. */
     public function allForPurchase(): Collection
     {
-        return Item::with('displayUnit')->orderBy('name')->get();
+        return Item::with('displayUnit')->where('tenant_id', $this->context->tenantId())->orderBy('name')->get();
     }
 
     private function hasStockLeft(ItemPosition $position): bool

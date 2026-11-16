@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class CustomerName extends Model
 {
-    protected $fillable = ['transaction_id', 'name'];
+    protected $fillable = ['tenant_id', 'transaction_id', 'name'];
 
     public function transaction(): BelongsTo
     {

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Transaction;
+use App\Support\TenantContext;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Barryvdh\DomPDF\PDF as DomPdf;
 use Illuminate\Http\JsonResponse;
@@ -18,8 +19,12 @@ use Illuminate\Support\Facades\URL;
  */
 class ReceiptController extends Controller
 {
+    public function __construct(private readonly TenantContext $context) {}
+
     public function download(Transaction $sale): Response
     {
+        $this->ensureTenant($sale);
+
         $customerName = $this->customerName($sale);
         $filename = $customerName !== ''
             ? $this->safeReceiptFilename('sales-'.$customerName)
@@ -48,6 +53,7 @@ class ReceiptController extends Controller
 
     public function shareLink(Transaction $sale): JsonResponse
     {
+        $this->ensureTenant($sale);
         $this->ensureSale($sale);
 
         $expiresIn = max(1, (int) config('stockly.receipt_share_days', 30));
@@ -80,5 +86,10 @@ class ReceiptController extends Controller
     private function ensureSale(Transaction $sale): void
     {
         abort_unless($sale->isSale(), 404);
+    }
+
+    private function ensureTenant(Transaction $sale): void
+    {
+        abort_unless($sale->tenant_id === $this->context->tenantId(), 404);
     }
 }

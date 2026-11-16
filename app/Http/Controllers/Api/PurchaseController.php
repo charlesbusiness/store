@@ -19,6 +19,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
+use App\Support\TenantContext;
 
 class PurchaseController extends Controller
 {
@@ -27,6 +28,7 @@ class PurchaseController extends Controller
     public function __construct(
         private readonly RecordFormData $formData,
         private readonly ActivityReader $activity,
+        private readonly TenantContext $context,
     ) {}
 
     public function index(Request $request): AnonymousResourceCollection
@@ -37,6 +39,8 @@ class PurchaseController extends Controller
             $request->query('date_from'),
             $request->query('date_to'),
         );
+
+        $purchases->load(['lines.item', 'lines.unit']);
 
         return PurchaseResource::collection($purchases);
     }
@@ -71,18 +75,21 @@ class PurchaseController extends Controller
 
     public function show(Transaction $purchase): JsonResponse
     {
+        abort_unless($purchase->tenant_id === $this->context->tenantId(), 404);
         $purchase->load(['lines.item', 'lines.unit']);
         return response()->json(['data' => new PurchaseResource($purchase)]);
     }
 
     public function destroy(Transaction $purchase): JsonResponse
     {
+        abort_unless($purchase->tenant_id === $this->context->tenantId(), 404);
         $purchase->delete();
         return response()->json(['message' => 'Purchase deleted']);
     }
 
     public function destroyLine(Transaction $purchase, TransactionLine $line): JsonResponse
     {
+        abort_unless($purchase->tenant_id === $this->context->tenantId(), 404);
         if ($line->transaction_id !== $purchase->id) {
             return response()->json(['message' => 'Line not found in this purchase'], 404);
         }
@@ -105,13 +112,14 @@ class PurchaseController extends Controller
      */
     public function updateLine(UpdatePurchaseLineRequest $request, Transaction $purchase, TransactionLine $line): JsonResponse
     {
+        abort_unless($purchase->tenant_id === $this->context->tenantId(), 404);
         if ($line->transaction_id !== $purchase->id) {
             return response()->json(['message' => 'Line not found in this purchase'], 404);
         }
 
         DB::transaction(function () use ($request, $purchase, $line) {
             $line->loadMissing('item');
-            Item::whereKey($line->item_id)->lockForUpdate()->get();
+            Item::where('tenant_id', $this->context->tenantId())->whereKey($line->item_id)->lockForUpdate()->get();
 
             $row = [
                 'item_id' => $line->item_id,

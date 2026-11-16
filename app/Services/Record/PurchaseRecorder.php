@@ -9,6 +9,7 @@ use App\Services\Stock\ItemResolver;
 use App\Services\Stock\UnitCatalog;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Validation\ValidationException;
+use App\Support\TenantContext;
 
 /**
  * Records a purchase, which is the only side of the ledger allowed to bring a
@@ -21,8 +22,9 @@ class PurchaseRecorder extends RecordWriter
         AvailabilityChecker $availability,
         private readonly ItemResolver $items,
         private readonly UnitCatalog $units,
+        TenantContext $context,
     ) {
-        parent::__construct($normalizer, $availability);
+        parent::__construct($normalizer, $availability, $context);
     }
 
     public function type(): RecordType

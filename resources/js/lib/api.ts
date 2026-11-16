@@ -1,13 +1,9 @@
 import axios from 'axios';
 import { useAuthStore } from '@/stores/authStore';
 
-function getCsrfToken(): string | null {
-    const meta = document.querySelector('meta[name="csrf-token"]');
-    return meta ? meta.getAttribute('content') : null;
-}
-
 export const api = axios.create({
     baseURL: '/api',
+    withCredentials: false,
 });
 
 api.interceptors.request.use((config) => {
@@ -16,10 +12,9 @@ api.interceptors.request.use((config) => {
         config.headers.Authorization = `Bearer ${token}`;
     }
 
-    const csrfToken = getCsrfToken();
-    if (csrfToken) {
-        config.headers['X-CSRF-TOKEN'] = csrfToken;
-    }
+    const state = useAuthStore.getState();
+    if (state.activeTenantId) config.headers['X-Tenant-ID'] = String(state.activeTenantId);
+    if (state.activeBranchId) config.headers['X-Branch-ID'] = String(state.activeBranchId);
 
     return config;
 });

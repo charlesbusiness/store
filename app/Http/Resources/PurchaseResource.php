@@ -13,6 +13,7 @@ class PurchaseResource extends JsonResource
             'id' => $this->id,
             'transacted_on' => $this->transacted_on?->toDateString(),
             'total' => (float) $this->total,
+            'is_internal_transfer' => $this->resource->isInternalTransfer(),
             'lines' => $this->whenLoaded('lines', fn () => $this->lines->map(fn ($line) => [
                 'id' => $line->id,
                 'item_id' => $line->item_id,

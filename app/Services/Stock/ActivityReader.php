@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use App\Support\TenantContext;
 
 /**
  * Reads the ledger as a timeline: the most recent transactions of a type, and
@@ -18,12 +19,12 @@ use Illuminate\Support\Facades\DB;
  */
 class ActivityReader extends Service
 {
-    public function __construct(private readonly UnitCatalog $units) {}
+    public function __construct(private readonly UnitCatalog $units, private readonly TenantContext $context) {}
 
     /** How many transactions of a type exist, for the "showing N of M" hint. */
     public function transactionsOf(RecordType $type): int
     {
-        return Transaction::query()->where('type', $type->value)->count();
+        return $this->applyFilters(Transaction::query(), $type)->count();
     }
 
     /**
@@ -62,6 +63,8 @@ class ActivityReader extends Service
 
         return Transaction::query()
             ->where('type', $type->value)
+            ->where('tenant_id', $this->context->tenantId())
+            ->when($this->context->branchRequired(), fn ($query) => $query->where('branch_id', $this->context->branchId()))
             ->with(['lines.item.displayUnit', 'lines.unit'])
             ->orderByDesc('transacted_on')
             ->orderByDesc('id')
@@ -164,6 +167,11 @@ class ActivityReader extends Service
         ?bool $paid = null
     ) {
         $query->where('type', $type->value);
+        $query->where('tenant_id', $this->context->tenantId());
+
+        if ($this->context->branchRequired()) {
+            $query->where('branch_id', $this->context->branchId());
+        }
 
         if ($search !== null && $search !== '') {
             $query->whereHas('lines.item', function ($q) use ($search) {
@@ -205,13 +213,20 @@ class ActivityReader extends Service
         }
 
         // Ordered newest first, so the first row seen for an item is its last sale.
-        $rows = DB::table('transaction_lines')
+        $query = DB::table('transaction_lines')
             ->join('transactions', 'transactions.id', '=', 'transaction_lines.transaction_id')
             ->where('transactions.type', RecordType::Sale->value)
+            ->where('transactions.tenant_id', $this->context->tenantId())
             ->whereIn('transaction_lines.item_id', $ids)
             ->orderByDesc('transactions.transacted_on')
             ->orderByDesc('transaction_lines.id')
-            ->get([
+            ;
+
+        if ($this->context->branchRequired()) {
+            $query->where('transactions.branch_id', $this->context->branchId());
+        }
+
+        $rows = $query->get([
                 'transaction_lines.item_id as item_id',
                 'transaction_lines.unit_code as unit_code',
                 'transaction_lines.base_qty as base_qty',
